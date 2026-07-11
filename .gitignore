@@ -1,0 +1,17 @@
+# Go
+*.exe
+*.exe~
+*.test
+*.out
+coverage.txt
+vendor/
+
+# Local run artifacts
+db/
+*.log
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
