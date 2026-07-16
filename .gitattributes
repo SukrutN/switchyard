@@ -1,0 +1,6 @@
+# The repo stores LF; working trees get LF on every platform.
+# (Go tooling and CI treat this as normative; PowerShell accepts LF scripts.)
+* text=auto eol=lf
+
+# Windows binaries are never touched by checkout.
+*.exe binary
