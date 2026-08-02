@@ -27,6 +27,15 @@ const (
 	CodeNotHandshaked byte = 0x08 // op arrived before HELLO/WELCOME completed
 	CodeUnknownOp     byte = 0x09 // op number has no meaning in this version — always fatal
 	CodeIdleTimeout   byte = 0x0A // no frames for Idle+Grace — always fatal
+	// Lane refusals: a naming or routing mistake keeps the session alive.
+	CodeStreamUnknown  byte = 0x0B // no lane by that name
+	CodeStreamExists   byte = 0x0C // STREAM_CREATE for an existing lane
+	CodeBadStreamName  byte = 0x0D // lane name off the §3.1 charter
+	CodeStreamSubject  byte = 0x0E // subject's first token is not this lane
+	CodeDupConsumer    byte = 0x0F // consumer name live on another session
+	CodeNoConsumer     byte = 0x10 // consumer name unknown to this lane
+	CodeStreamDisabled byte = 0x11 // yard has no data dir; lanes refused
+	CodeServerFault    byte = 0x12 // storage refused the op; nothing pretended
 )
 
 // NameFor exposes the operator-facing name of a protocol error code. Lives
@@ -53,6 +62,22 @@ func NameFor(code byte) string {
 		return "unknown-op"
 	case CodeIdleTimeout:
 		return "idle-timeout"
+	case CodeStreamUnknown:
+		return "stream-unknown"
+	case CodeStreamExists:
+		return "stream-exists"
+	case CodeBadStreamName:
+		return "bad-stream-name"
+	case CodeStreamSubject:
+		return "stream-subject-mismatch"
+	case CodeDupConsumer:
+		return "duplicate-consumer"
+	case CodeNoConsumer:
+		return "no-such-consumer"
+	case CodeStreamDisabled:
+		return "stream-disabled"
+	case CodeServerFault:
+		return "server-fault"
 	default:
 		return "error"
 	}
