@@ -27,23 +27,29 @@ import (
 // client that cannot keep up is a client bug; an unbounded queue is a
 // server bug.
 
-// deliverTask is one message for one subscription. Payload is shared,
-// immutable after publish — copying happens exactly once per message, in the
-// publish handler, whatever the fan-out.
+// deliverTask is one message (or one ordered control frame) for one
+// subscription. Payload is shared, immutable after publish — copying happens
+// exactly once per message, in the publish handler, whatever the fan-out;
+// the writer treats it read-only. Ordered frames ride the same queue as
+// deliveries when a frame's meaning depends on arriving first (§2.13
+// CONSUMER_READY before replayed deliveries).
 type deliverTask struct {
 	sid      uint32
 	subject  string
 	payload  []byte
 	reply    string
 	hasReply bool
-	kind     uint8  // taskSpur (§2.6 delivery) or taskLane (§2.14 delivery)
+	kind     uint8  // taskSpur (§2.6), taskLane (§2.14), or taskRaw (ordered ctl)
 	laneSeq  uint64 // the lane's sequence when kind == taskLane
+	rawOp    wire.Op
+	rawBody  []byte
 }
 
 // Delivery task kinds; the writer goroutine picks its frame op from these.
 const (
 	taskSpur uint8 = iota // ordinary pub/sub delivery, per-sid gapless seq
 	taskLane              // durable lane delivery, lane's seq passes through
+	taskRaw               // an op that must keep queue order relative to deliveries
 )
 
 // ctlFrame is inline traffic the reader side wants the writer to emit, so
@@ -123,6 +129,7 @@ func (s *session) serve() error {
 
 	// Reader is done: wake the writer, then wait for it to flush whatever
 	// fatal frame is queued before the socket goes away.
+	s.doomed.Store(true) // a session past its loop is dead for delivery law
 	close(s.quit)
 	wg.Wait()
 	return err
@@ -340,6 +347,9 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 		if pub.Tokens[0] != p.Stream {
 			return s.pushErr("stream publish refused: subject's first token "+pub.Tokens[0]+" is not the lane "+p.Stream, wire.CodeStreamSubject)
 		}
+		if !s.hub.lanes.enabled() {
+			return s.pushErr("stream publish refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+		}
 		st := s.hub.lanes.resolve(p.Stream)
 		if st == nil {
 			return s.pushErr("stream publish refused: no lane named "+p.Stream, wire.CodeStreamUnknown)
@@ -374,6 +384,9 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 		}
 		st := s.hub.lanes.resolve(a.Stream)
 		if st == nil {
+			if !s.hub.lanes.enabled() {
+				return s.pushErr("consumer attach refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+			}
 			return s.pushErr("consumer attach refused: no lane named "+a.Stream, wire.CodeStreamUnknown)
 		}
 		var filter *subjects.Subject
@@ -385,18 +398,29 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 			filter = &f
 		}
 		ackWait := s.laneAckWait(a.AckWaitMillis)
-		next, code, cerr := st.attach(s, a.Sid, a.Consumer, filter, ackWait)
+		next, cons, code, cerr := st.reserve(s, a.Sid, a.Consumer, filter, ackWait)
 		if cerr != nil {
 			return s.pushErr("consumer attach refused: "+cerr.Error(), code)
 		}
 		s.rememberLane(a.Sid, laneRef{lane: a.Stream, consumer: a.Consumer})
-		if body, err := wire.EncodeConsumerReady(wire.ConsumerReady{
+		rbody, rerr := wire.EncodeConsumerReady(wire.ConsumerReady{
 			Stream: a.Stream, Consumer: a.Consumer, Sid: a.Sid, Next: next,
 			AckWaitMillis: uint32(ackWait / time.Millisecond),
-		}); err == nil {
-			s.pushCtl(wire.OpConsumerReady, body, false)
-		} else {
-			return fmt.Errorf("encode consumer ready: %w", err)
+		})
+		if rerr != nil {
+			return fmt.Errorf("encode consumer ready: %w", rerr)
+		}
+		// CONSUMER_READY rides the delivery queue, not the ctl queue (§2.13):
+		// replayed deliveries are ordered behind it BY THE QUEUE, which is
+		// the only place both live. A ctl frame is unordered against
+		// delivers; the settle frame is the one frame that may not race them.
+		if !s.queueRaw(wire.OpConsumerReady, rbody) {
+			return fmt.Errorf("queue consumer ready: session closing")
+		}
+		// Phase two: from the client's view the consumer was born ready; now
+		// everything it is owed starts arriving, in lane order.
+		if err := st.beginReplay(cons); err != nil {
+			return s.pushErr("consumer attach failed: "+err.Error(), wire.CodeNoConsumer)
 		}
 		s.log.Info("consumer attached", "session", s.id, "lane", a.Stream, "consumer", a.Consumer, "next", next)
 		return nil
@@ -443,6 +467,9 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 			return s.pushErr("stream delete refused: "+derr.Error(), wire.CodeServerFault)
 		}
 		if !removed {
+			if !s.hub.lanes.enabled() {
+				return s.pushErr("stream delete refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+			}
 			return s.pushErr("stream delete refused: no lane named "+dlt.Name, wire.CodeStreamUnknown)
 		}
 		notifyLaneGone(s.hub, dlt.Name)
@@ -682,6 +709,15 @@ func (s *session) writeLoop() {
 			if s.doomed.Load() {
 				continue // drain dead assignments; nothing further goes out
 			}
+			if t.kind == taskRaw {
+				// An ordered control frame (§2.13): its place is exactly
+				// here, between whatever was queued before and after.
+				if err := s.writeFrame(t.rawOp, t.rawBody); err != nil {
+					s.conn.Close()
+					return
+				}
+				continue
+			}
 			if t.kind == taskLane {
 				// Lane delivery: the seq is the LANE's, assigned at journal
 				// time and shared by every consumer; per-sid stamping does
@@ -760,6 +796,21 @@ func (s *session) deliverLane(sid uint32, laneSeq uint64, subject string, payloa
 	t := deliverTask{sid: sid, subject: subject, payload: payload, reply: reply, hasReply: hasReply, kind: taskLane, laneSeq: laneSeq}
 	select {
 	case s.out <- t:
+		return true
+	default:
+		s.kill(fmt.Sprintf("deliver queue overflow (%d buffered)", s.cfg.OutBuf), wire.CodeSlowConsumer)
+		return false
+	}
+}
+
+// queueRaw enqueues an ordered control frame (CONSUMER_READY is the one user
+// today). Returns false when the session is already dead.
+func (s *session) queueRaw(op wire.Op, body []byte) bool {
+	if s.dead() {
+		return false
+	}
+	select {
+	case s.out <- deliverTask{kind: taskRaw, rawOp: op, rawBody: body}:
 		return true
 	default:
 		s.kill(fmt.Sprintf("deliver queue overflow (%d buffered)", s.cfg.OutBuf), wire.CodeSlowConsumer)

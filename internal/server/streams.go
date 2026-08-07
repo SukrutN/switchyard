@@ -71,12 +71,15 @@ func newLaneRegistry(dataDir string, syncEach bool, log *slog.Logger) *laneRegis
 	if log == nil {
 		log = slog.Default()
 	}
-	return &laneRegistry{
+	r := &laneRegistry{
 		byName:   make(map[string]*stream),
-		root:     filepath.Join(dataDir, "streams"),
 		syncEach: syncEach,
 		log:      log,
 	}
+	if dataDir != "" {
+		r.root = filepath.Join(dataDir, "streams")
+	}
+	return r
 }
 
 // enabled reports whether the registry may serve lanes at all.
@@ -175,6 +178,16 @@ func (r *laneRegistry) resolve(name string) *stream {
 	return r.byName[name]
 }
 
+// shutdown closes every journal handle at server Stop. Positions and bytes
+// were fsynced at their write time; nothing more is owed to disk.
+func (r *laneRegistry) shutdown() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, st := range r.byName {
+		_ = st.j.close()
+	}
+}
+
 // deleteLane tears one lane down: files removed, registry entry dropped.
 // The stream is quarantined first so a publish that resolved a moment ago
 // cannot write into a lane the operator no longer owns.
@@ -197,9 +210,6 @@ func (r *laneRegistry) deleteLane(name string) (bool, error) {
 	err := st.j.close()
 	if rerr := os.RemoveAll(st.dir); rerr != nil && err == nil {
 		err = rerr
-	}
-	if err == nil {
-		err = os.Remove(filepath.Join(r.root, name))
 	}
 	return true, err
 }
@@ -259,19 +269,27 @@ func (st *stream) fanOutLocked(seq uint64, sub subjects.Subject, rec journalReco
 		if c.filter != nil && !subjects.Match(*c.filter, sub) {
 			continue
 		}
+		if c.held {
+			// Attach in progress: credit the ledger, deliver nothing yet.
+			// The replay that follows the READY frame will send it.
+			c.pending[seq] = time.Now()
+			continue
+		}
 		c.pending[seq] = time.Now()
 		c.sess.deliverLane(c.sid, seq, rec.Subject, rec.Payload, rec.Reply, rec.HasReply)
 	}
 }
 
-// attach makes the consumer live on this session and replays everything the
-// consumer still owes: pending entries first (they were delivered to a
-// session that did not live to ack them), then the unacked window. Returns
-// the first sequence the client should expect — the CONSUMER_READY `next`.
+// reserve opens (or resumes) the consumer's durable attachment and holds
+// its deliveries. Phase one of attach: the READY frame must reach the wire
+// before any replayed delivery, so reserve computes the position, persists
+// it, and marks the consumer held — fan-out keeps crediting pending entries
+// but sends nothing. beginReplay releases the hold and queues everything
+// owed, in lane order, on the session's delivery queue behind the READY.
 // A consumer name unknown to the lane starts fresh at the lane's beginning.
-func (st *stream) attach(s *session, sid uint32, cName string, filter *subjects.Subject, ackWait time.Duration) (uint64, byte, error) {
+func (st *stream) reserve(s *session, sid uint32, cName string, filter *subjects.Subject, ackWait time.Duration) (uint64, *consumer, byte, error) {
 	if s.sidTaken(sid) {
-		return 0, wire.CodeDupConsumer, fmt.Errorf("sid %d already holds a subscription; one sid, one thing", sid)
+		return 0, nil, wire.CodeDupConsumer, fmt.Errorf("sid %d already holds a subscription; one sid, one thing", sid)
 	}
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -281,45 +299,39 @@ func (st *stream) attach(s *session, sid uint32, cName string, filter *subjects.
 		st.consumers[cName] = c
 	} else {
 		if c.sess != nil {
-			return 0, wire.CodeDupConsumer, fmt.Errorf("consumer %q is live on %s; detach or wait", cName, s.peerName)
+			if c.sess.dead() {
+				// The session is a corpse that has not reached its own
+				// detachAllLanes yet — consumer attachments never belong
+				// to the dead. Reclaim the attachment and its sweeper.
+				if c.sweeperStop != nil {
+					close(c.sweeperStop)
+					c.sweeperStop = nil
+				}
+				c.sess = nil
+			} else if c.sess != s {
+				return 0, nil, wire.CodeDupConsumer, fmt.Errorf("consumer %q is live on another session; detach first or wait for it to die", cName)
+			} else {
+				return 0, nil, wire.CodeDupConsumer, fmt.Errorf("consumer %q is already attached by another sid of this session", cName)
+			}
 		}
 		if nameChangedFilter(c.filter, filter) {
-			return 0, wire.CodeDupConsumer, fmt.Errorf("consumer %q keeps its original filter; attach with the pattern it was born with", cName)
+			return 0, nil, wire.CodeDupConsumer, fmt.Errorf("consumer %q keeps its original filter; attach with the pattern it was born with", cName)
 		}
 		c.ackWait = ackWait
 	}
 	c.sess = s
 	c.sid = sid
+	c.held = true
 
-	// Fresh consumer at zero obligations: the whole lane history is owed,
-	// which is what durability is for. Everything else resumes.
+	// Fresh consumer, zero obligations: the whole lane history is owed —
+	// that is what durability is for. Every other case resumes. The
+	// smallest pending entry can predate the floor only across a filter;
+	// start there when one does.
 	start := c.floor + 1
 	if len(c.pending) > 0 {
 		if mp := minPending(c.pending); mp < start {
 			start = mp
 		}
-	}
-
-	if err := st.j.forEachRecord(func(seqNo uint64, rec journalRecord) bool {
-		if seqNo < start || seqNo > st.seq {
-			return false // irrelevant window; keep scanning until start
-		}
-		if _, is := c.pending[seqNo]; is {
-			c.pending[seqNo] = time.Now()
-			s.deliverLane(c.sid, seqNo, rec.Subject, rec.Payload, rec.Reply, rec.HasReply)
-			return false
-		}
-		if c.filter != nil {
-			psub, perr := subjects.Parse(rec.Subject)
-			if perr != nil || !subjects.Match(*c.filter, psub) {
-				return false
-			}
-		}
-		c.pending[seqNo] = time.Now()
-		s.deliverLane(c.sid, seqNo, rec.Subject, rec.Payload, rec.Reply, rec.HasReply)
-		return false
-	}); err != nil {
-		return 0, wire.CodeServerFault, fmt.Errorf("journal replay for consumer %q: %w", cName, err)
 	}
 
 	if err := st.persistConsumerLocked(c); err != nil {
@@ -328,7 +340,65 @@ func (st *stream) attach(s *session, sid uint32, cName string, filter *subjects.
 	stop := make(chan struct{})
 	c.sweeperStop = stop
 	go st.runSweeper(c, stop)
-	return start, 0, nil
+	return start, c, 0, nil
+}
+
+// beginReplay flows everything the consumer is owed onto its session's
+// delivery queue, ascending, and lifts the hold. Fresh window entries that
+// match the filter get first delivery now — they might have arrived while
+// no consumer was attached; the filter decides, the ledger no longer will.
+// A lane deleted between the two phases answers with a refusal; the
+// STREAM_GONE already queued will explain it.
+func (st *stream) beginReplay(c *consumer) error {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.quarantined {
+		c.held = false
+		return fmt.Errorf("lane %q was deleted or quarantined mid-attach", st.name)
+	}
+	c.held = false
+	return st.replayWindowLocked(c)
+}
+
+// replayWindowLocked is the shared heart of attach and post-hold fan-out:
+// every owed sequence in lane order, redelivering pending rows and claiming
+// fresh matches. Caller holds st.mu.
+func (st *stream) replayWindowLocked(c *consumer) error {
+	start := c.floor + 1
+	if len(c.pending) > 0 {
+		if mp := minPending(c.pending); mp < start {
+			start = mp
+		}
+	}
+	err := st.j.forEachRecord(func(seqNo uint64, rec journalRecord) bool {
+		if seqNo < start || seqNo > st.seq {
+			return false
+		}
+		if _, is := c.pending[seqNo]; !is {
+			// Not owed before, not filtered out: only deliver it if the
+			// consumer's filter catches it, then treat it as pending like
+			// any first delivery.
+			if c.filter != nil {
+				psub, perr := subjects.Parse(rec.Subject)
+				if perr != nil || !subjects.Match(*c.filter, psub) {
+					return false
+				}
+			}
+			c.pending[seqNo] = time.Now()
+		} else {
+			c.pending[seqNo] = time.Now() // redelivery resets the ack clock
+		}
+		s := c.sess
+		if s == nil || s.dead() {
+			return false
+		}
+		s.deliverLane(c.sid, seqNo, rec.Subject, rec.Payload, rec.Reply, rec.HasReply)
+		return false
+	})
+	if err != nil {
+		return fmt.Errorf("journal replay: %w", err)
+	}
+	return nil
 }
 
 // attach re-attach guard: filter mismatch with a harmless distance. A
@@ -388,6 +458,7 @@ func (st *stream) detachConsumer(cName string, s *session) bool {
 		return false
 	}
 	c.sess = nil
+	c.held = false
 	if c.sweeperStop != nil {
 		close(c.sweeperStop)
 		c.sweeperStop = nil
@@ -453,7 +524,7 @@ func (st *stream) runSweeper(c *consumer, stop chan struct{}) {
 func (st *stream) sweepOnce(c *consumer) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	if c.sess == nil || c.sess.dead() {
+	if c.held || c.sess == nil || c.sess.dead() {
 		return
 	}
 	cutoff := time.Now().Add(-c.ackWait)
@@ -489,13 +560,16 @@ type laneRef struct {
 }
 
 // consumer is one durable reader of one lane. Position (floor + pending) is
-// the durable state; attachment (sess/sid) is the live one.
+// the durable state; attachment (sess/sid) is the live one; held marks the
+// window between reserve and READY-on-the-wire, during which fan-out may
+// only credit the ledger, never deliver.
 type consumer struct {
 	name    string
 	floor   uint64
 	pending map[uint64]time.Time
 	filter  *subjects.Subject
 	ackWait time.Duration
+	held    bool
 
 	sess *session
 	sid  uint32
