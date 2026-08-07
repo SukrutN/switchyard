@@ -324,6 +324,11 @@ func TestLaneCreateAndRefusals(t *testing.T) {
 	c.send(t, wire.OpStreamDelete, db)
 	laneExpectError(t, c, wire.CodeStreamUnknown, 2*time.Second)
 
+	// Consumer attach on the reserved sid.
+	ab, _ := wire.EncodeConsumerAttach(wire.ConsumerAttach{Stream: "payments", Consumer: "c0", Sid: 0})
+	c.send(t, wire.OpConsumerAttach, ab)
+	laneExpectError(t, c, wire.CodeBadSubject, 2*time.Second)
+
 	// After all that refusing, the session still works: a clean create.
 	if seq := laneCreate(t, c, "east"); seq != 1 {
 		t.Fatalf("east seq = %d, want 1 (refusals must keep sessions alive)", seq)
