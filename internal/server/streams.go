@@ -339,7 +339,7 @@ func (st *stream) reserve(s *session, sid uint32, cName string, filter *subjects
 	}
 	stop := make(chan struct{})
 	c.sweeperStop = stop
-	go st.runSweeper(c, stop)
+	go st.runSweeper(c, stop, sweepInterval(ackWait))
 	return start, c, 0, nil
 }
 
@@ -494,17 +494,11 @@ func (st *stream) ack(cName string, s *session, seq uint64) (byte, error) {
 }
 
 // runSweeper replays overdue entries for one attached consumer. It owns a
-// private stop channel — the goroutine never reads consumer fields that
-// attach/detach rewrite, so there is no data race on the handshake — and
-// exits the moment detach closes it. The pending set persists regardless.
-func (st *stream) runSweeper(c *consumer, stop chan struct{}) {
-	interval := c.ackWait / 4
-	if interval < 10*time.Millisecond {
-		interval = 10 * time.Millisecond
-	}
-	if interval > time.Second {
-		interval = time.Second
-	}
+// private stop channel and a caller-computed interval — the goroutine never
+// reads consumer fields that attach/detach rewrite, so there is no data
+// race on the handshake — and exits the moment detach closes it. The
+// pending set persists regardless.
+func (st *stream) runSweeper(c *consumer, stop chan struct{}, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
@@ -515,6 +509,22 @@ func (st *stream) runSweeper(c *consumer, stop chan struct{}) {
 			st.sweepOnce(c)
 		}
 	}
+}
+
+// sweepInterval clusters the redelivery checks at a quarter of the wait,
+// clamped to a range that is responsive without burning a core.
+func sweepInterval(ackWait time.Duration) time.Duration {
+	if ackWait <= 0 {
+		return 100 * time.Millisecond
+	}
+	interval := ackWait / 4
+	if interval < 10*time.Millisecond {
+		interval = 10 * time.Millisecond
+	}
+	if interval > time.Second {
+		interval = time.Second
+	}
+	return interval
 }
 
 // sweepOnce re-delivers overdue entries: pending sequences older than the
