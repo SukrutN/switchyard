@@ -628,19 +628,25 @@ func (j *journal) forEachRecord(fn func(seq uint64, rec journalRecord) bool) err
 	return nil
 }
 
-// notifyLaneGone tells every session holding a consumer on a deleted lane,
-// and frees their sids. Called from the deleting session's dispatch with the
-// registry already swept.
-func notifyLaneGone(h *Hub, name string) {
+// notifyLaneGone tells every session holding a consumer on a deleted lane —
+// except the deleter, whose own confirm is already its goodbye — and frees
+// their sids. Called from the deleting session's dispatch with the registry
+// already swept.
+func notifyLaneGone(h *Hub, skip *session, name string) {
 	h.eachSession(func(s *session) {
 		s.mu.Lock()
+		heldOwn := false
 		for sid, ref := range s.lanes {
 			if ref.lane == name {
 				delete(s.lanes, sid)
+				heldOwn = true
 			}
 		}
 		s.mu.Unlock()
-		if !s.dead() {
+		if s == skip {
+			return // the deleting session's goodbye is its own confirm
+		}
+		if heldOwn && !s.dead() {
 			if body, err := wire.EncodeStreamGone(wire.StreamGone{Name: name}); err == nil {
 				s.pushCtl(wire.OpStreamGone, body, false)
 			}
