@@ -44,8 +44,14 @@ func pub(t *testing.T, hub *Hub, subject string, payload []byte) int {
 	return hub.publish(s, payload, "", false)
 }
 
+// newTestHub is the lane-less hub every existing test wants: no data dir,
+// so lane ops are refused and the registry stays inert.
+func newTestHub() *Hub {
+	return newHub(newLaneRegistry("", true, nil))
+}
+
 func TestHubSubscribeCodes(t *testing.T) {
-	hub := newHub()
+	hub := newTestHub()
 	s := testSession(t, hub, "a")
 
 	if code, err := hub.subscribe(s, 0, "orders.>"); err == nil || code == 0 {
@@ -72,7 +78,7 @@ func TestHubSubscribeCodes(t *testing.T) {
 }
 
 func TestHubPublishFanOut(t *testing.T) {
-	hub := newHub()
+	hub := newTestHub()
 	a := testSession(t, hub, "a") // greater
 	b := testSession(t, hub, "b") // star mid
 	c := testSession(t, hub, "c") // literal
@@ -120,7 +126,7 @@ func TestHubPublishFanOut(t *testing.T) {
 // The charter's '>' needs ≥1 trailing token: explicit boundary coverage at
 // hub level, because this is the case the trie walk got wrong first draft.
 func TestHubGreaterNeedsOneToken(t *testing.T) {
-	hub := newHub()
+	hub := newTestHub()
 	a := testSession(t, hub, "a")
 	da := drain(t, a)
 	if _, err := hub.subscribe(a, 1, "orders.paid.>"); err != nil {
@@ -142,7 +148,7 @@ func TestHubGreaterNeedsOneToken(t *testing.T) {
 }
 
 func TestHubUnsubscribe(t *testing.T) {
-	hub := newHub()
+	hub := newTestHub()
 	a := testSession(t, hub, "a")
 	if _, err := hub.subscribe(a, 5, "orders.>"); err != nil {
 		t.Fatalf("sub: %v", err)
@@ -163,7 +169,7 @@ func TestHubUnsubscribe(t *testing.T) {
 }
 
 func TestHubSessionTeardown(t *testing.T) {
-	hub := newHub()
+	hub := newTestHub()
 	a := testSession(t, hub, "a")
 	b := testSession(t, hub, "b")
 	if _, err := hub.subscribe(a, 1, "orders.>"); err != nil {
@@ -189,7 +195,7 @@ func TestHubSessionTeardown(t *testing.T) {
 // forests of dead nodes behind. Proof: re-walking the removed pattern (no
 // create) must find nothing.
 func TestHubPrunesDeadBranches(t *testing.T) {
-	hub := newHub()
+	hub := newTestHub()
 	a := testSession(t, hub, "a")
 	if _, err := hub.subscribe(a, 1, "deep.path.to.nowhere.>"); err != nil {
 		t.Fatal(err)

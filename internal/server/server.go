@@ -13,7 +13,7 @@ import (
 
 // Version is the single source of the product string: WELCOME label, logs,
 // readiness line, and the changelog all echo it.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // ServerLabel is what WELCOME advertises as the peer identity.
 func ServerLabel() string { return "switchyard/" + Version }
@@ -24,20 +24,28 @@ func ServerLabel() string { return "switchyard/" + Version }
 const (
 	DefaultMaxBody      = 1 << 20 // 1 MiB, below the 4 MiB protocol ceiling
 	DefaultOutBuf       = 512
+	DefaultCtlBuf       = 256 // receipts, pongs, refusals — never silently dropped
 	DefaultIdle         = 30 * time.Second
 	DefaultGrace        = 10 * time.Second
 	DefaultWriteTimeout = 10 * time.Second
+	DefaultAckWait      = 10 * time.Second // lane redelivery default (§7)
 )
 
 // Config is identical in meaning to its name. Zero values fall back to the
-// defaults; the one field worth setting by hand is Addr.
+// defaults; the one field worth setting by hand is Addr. Lanes stay off
+// until DataDir is set — a yard without a data dir refuses stream ops with
+// STREAM_DISABLED rather than pretending to persist.
 type Config struct {
 	Addr         string        // listen spec, e.g. "127.0.0.1:4780"
 	MaxBody      uint32        // frame body ceiling, ≤ wire.MaxBodyBytes
 	OutBuf       int           // deliver-queue depth per session
+	CtlBuf       int           // control-queue depth per session
 	Idle         time.Duration // silence before the yard sends PING
 	Grace        time.Duration // silence after PING before the yard closes
 	WriteTimeout time.Duration // per-frame write budget
+	DataDir      string        // enables durable lanes when non-empty
+	AckWait      time.Duration // lane consumer default redelivery delay
+	NoSync       bool          // skip per-record fsync (tests/dev only; NOT durable)
 	Log          *slog.Logger
 }
 
@@ -51,6 +59,9 @@ func (c *Config) withDefaults() {
 	if c.OutBuf <= 0 {
 		c.OutBuf = DefaultOutBuf
 	}
+	if c.CtlBuf <= 0 {
+		c.CtlBuf = DefaultCtlBuf
+	}
 	if c.Idle <= 0 {
 		c.Idle = DefaultIdle
 	}
@@ -59,6 +70,9 @@ func (c *Config) withDefaults() {
 	}
 	if c.WriteTimeout <= 0 {
 		c.WriteTimeout = DefaultWriteTimeout
+	}
+	if c.AckWait <= 0 {
+		c.AckWait = DefaultAckWait
 	}
 	if c.Log == nil {
 		c.Log = slog.Default()
@@ -78,6 +92,8 @@ type Server struct {
 }
 
 // NewServer binds immediately — bring-up errors surface here, not at Run.
+// Lane recovery happens before the first accept: a client that connects
+// never races the replay.
 func NewServer(cfg Config) (*Server, error) {
 	cfg.withDefaults()
 	if cfg.Addr == "" {
@@ -87,7 +103,17 @@ func NewServer(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", cfg.Addr, err)
 	}
-	return &Server{cfg: cfg, hub: newHub(), ln: ln, log: cfg.Log}, nil
+	syncEach := !cfg.NoSync
+	lanes := newLaneRegistry(cfg.DataDir, syncEach, cfg.Log)
+	hub := newHub(lanes)
+	if lanes.enabled() {
+		if n := lanes.load(); n > 0 {
+			cfg.Log.Info("lanes recovered", "count", n, "dir", cfg.DataDir)
+		}
+	} else {
+		cfg.Log.Info("lanes disabled", "reason", "no data dir configured")
+	}
+	return &Server{cfg: cfg, hub: hub, ln: ln, log: cfg.Log}, nil
 }
 
 // Addr reports the bound spec — the tests use an ephemeral port and need the
@@ -143,6 +169,7 @@ func (srv *Server) serveConn(conn net.Conn) {
 	s := newSession(id, &srv.cfg, srv.hub, srv.log, conn)
 	srv.hub.register(s)
 	err := s.serve()
+	s.detachAllLanes() // positions stay durable; sweeper goroutines stop here
 	srv.hub.unregister(id)
 
 	reason := "bye"
@@ -153,7 +180,9 @@ func (srv *Server) serveConn(conn net.Conn) {
 }
 
 // Stop closes the listener and every open connection, then waits for the
-// session goroutines to land. Idempotent; safe to call from a signal path.
+// session goroutines to land. Lanes close last: their journals are already
+// fsync-per-record, so a Stop loses nothing — handles just go away tidily.
+// Idempotent; safe to call from a signal path.
 func (srv *Server) Stop() {
 	srv.mu.Lock()
 	srv.closed = true
@@ -161,4 +190,5 @@ func (srv *Server) Stop() {
 	_ = srv.ln.Close()
 	srv.hub.closeAll() // readers are parked on deadlines; closing unblocks them now
 	srv.wg.Wait()
+	srv.hub.lanes.shutdown()
 }

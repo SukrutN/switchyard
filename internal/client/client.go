@@ -1,12 +1,14 @@
 // Package client is the reference Switchyard client: the same code the
 // spur CLI and the test suite drive. It is deliberately small — dial,
-// handshake, subscribe, publish, receive — so a third party can mirror it
-// in another language from one file, and so the protocol never grows a
-// feature only this client can exercise.
+// handshake, subscribe, publish, receive, plus the durable lane set
+// (create, publish-with-receipt, attach, acknowledge) — so a third party
+// can mirror it in another language from two files, and so the protocol
+// never grows a feature only this client can exercise.
 //
-// Asynchrony contract (v1): SUBSCRIBE and PUBLISH carry no ack; refusals
-// arrive as ERROR frames on the Errors() channel. The one synchronous pair
-// is PING→PONG, because probes are defined as round-trips.
+// Asynchrony contract: SUBSCRIBE, PUBLISH, and LANE ACK carry no ack inside
+// the wire; refusals arrive as ERROR frames on the Errors() channel. The
+// synchronous pairs — PING→PONG, and the stream family's READY/RECEIPT/GONE
+// replies — are round-trips whose failures surface as Go errors.
 package client
 
 import (
@@ -49,6 +51,7 @@ type Options struct {
 	Label      string        // client family tag, e.g. "cli" (≤16 bytes)
 	Timeout    time.Duration // dial + handshake budget (default 5s)
 	DeliverBuf int           // delivery channel depth (default 256)
+	LaneBuf    int           // lane delivery channel depth (default 256)
 	Keepalive  time.Duration // silent-max minus; a probe PING follows (default 65s)
 }
 
@@ -58,6 +61,9 @@ func (o *Options) withDefaults() {
 	}
 	if o.DeliverBuf <= 0 {
 		o.DeliverBuf = 256
+	}
+	if o.LaneBuf <= 0 {
+		o.LaneBuf = 256
 	}
 	if o.Keepalive <= 0 {
 		o.Keepalive = 65 * time.Second
@@ -78,6 +84,23 @@ type Client struct {
 	errs       chan ClientError
 	keepalive  time.Duration
 	dropped    atomic.Uint64
+
+	lanes        chan LaneDelivery
+	laneDropped  atomic.Uint64
+	notices      chan StreamNotice
+	deletedLanes sync.Map // names of lanes this session is deleting; echo trap
+
+	// Synchronous stream RPCs take turns (rpcMu): one round-trip in flight
+	// at a time, so a refusal in the ERROR stream pairs with the RPC that
+	// could have produced it, and a receipt with the publish that owns it.
+	// Each RPC installs its reply slot before writing the request; late
+	// replies after a timeout die with the slot, quietly.
+	rpcMu      sync.Mutex
+	rpcErr     atomic.Pointer[chan ClientError]
+	readySet   atomic.Pointer[chan wire.StreamReady]
+	receiptSet atomic.Pointer[chan wire.StreamReceipt]
+	consSet    atomic.Pointer[chan wire.ConsumerReady]
+	goneSet    atomic.Pointer[chan struct{}]
 
 	// pingWait: the RPC slot for an in-flight PING. Close releases it.
 	pingMu   sync.Mutex
@@ -103,6 +126,8 @@ func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 		wr:         wire.NewWriter(conn),
 		deliveries: make(chan Delivery, o.DeliverBuf),
 		errs:       make(chan ClientError, 16),
+		lanes:      make(chan LaneDelivery, o.LaneBuf),
+		notices:    make(chan StreamNotice, 32),
 		keepalive:  o.Keepalive,
 		done:       make(chan struct{}),
 	}
@@ -290,12 +315,97 @@ func (c *Client) handle(op wire.Op, body []byte) error {
 	case wire.OpPong:
 		c.releasePing()
 		return nil
+	case wire.OpStreamReady:
+		r, err := wire.DecodeStreamReady(body)
+		if err != nil {
+			return fmt.Errorf("stream ready unreadable: %w", err)
+		}
+		if p := c.readySet.Load(); p != nil {
+			select {
+			case *p <- r:
+			default:
+			}
+		}
+		return nil
+	case wire.OpStreamReceipt:
+		r, err := wire.DecodeStreamReceipt(body)
+		if err != nil {
+			return fmt.Errorf("stream receipt unreadable: %w", err)
+		}
+		if p := c.receiptSet.Load(); p != nil {
+			select {
+			case *p <- r:
+			default:
+			}
+		}
+		return nil
+	case wire.OpConsumerReady:
+		r, err := wire.DecodeConsumerReady(body)
+		if err != nil {
+			return fmt.Errorf("consumer ready unreadable: %w", err)
+		}
+		if p := c.consSet.Load(); p != nil {
+			select {
+			case *p <- r:
+			default:
+			}
+		}
+		return nil
+	case wire.OpStreamGone:
+		g, err := wire.DecodeStreamGone(body)
+		if err != nil {
+			return fmt.Errorf("stream gone unreadable: %w", err)
+		}
+		if p := c.goneSet.Load(); p != nil {
+			select {
+			case *p <- struct{}{}:
+			default:
+			}
+		}
+		// A deleting session's own goodbye carries no notice: the deletion
+		// trap (armed before the request left) covers its single confirm.
+		// Other sessions, holding consumers, hear it here.
+		if _, own := c.deletedLanes.Load(g.Name); !own {
+			select {
+			case c.notices <- StreamNotice{Stream: g.Name}:
+			default:
+			}
+		}
+		return nil
+	case wire.OpStreamDeliver:
+		d, err := wire.DecodeStreamDeliver(body)
+		if err != nil {
+			return fmt.Errorf("stream deliver unreadable: %w", err)
+		}
+		dl := LaneDelivery{
+			Sid:      d.Sid,
+			Seq:      d.Seq,
+			Subject:  d.Subject,
+			Reply:    d.Reply,
+			HasReply: d.HasReply,
+			Payload:  append([]byte(nil), d.Payload...), // consumer owns it
+		}
+		select {
+		case c.lanes <- dl:
+		default:
+			c.laneDropped.Add(1)
+		}
+		return nil
 	case wire.OpPing:
 		// The yard is probing us: answer from the shared write path.
 		return c.write(wire.OpPong, nil)
 	case wire.OpError:
 		if e, err := wire.DecodeError(body); err == nil {
-			c.pushErr(ClientError{Code: e.Code, Message: e.Message, Fatal: e.Fatal})
+			ce := ClientError{Code: e.Code, Message: e.Message, Fatal: e.Fatal}
+			c.pushErr(ce)
+			// An in-flight synchronous RPC takes the refusal as its return
+			// value; Errors() keeps a copy for asynchronous listeners.
+			if p := c.rpcErr.Load(); p != nil {
+				select {
+				case *p <- ce:
+				default:
+				}
+			}
 			if e.Fatal {
 				c.dead.Store(true)
 			}
