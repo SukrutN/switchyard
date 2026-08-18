@@ -842,3 +842,243 @@ func TestLaneEndToEndThroughClientLib(t *testing.T) {
 	case <-time.After(150 * time.Millisecond):
 	}
 }
+
+// ---- KV over the same journal (§2.18–§2.23) ----
+//
+// The KV tests reuse the lane helpers; the yard means it: a bucket is a
+// lane, a set is a journaled record with a receipt, and a tombstone is
+// just as durable as a set.
+
+// laneKVSet journals one KV set and reads its receipt back — the same
+// receipt a publish gets, in the same per-session order.
+func laneKVSet(t *testing.T, c *raw, lane, key string, payload []byte, wantSeq uint64) {
+	t.Helper()
+	b, err := wire.EncodeKVSet(wire.KVSet{Lane: lane, Key: key, Payload: payload})
+	if err != nil {
+		t.Fatalf("kv set encode: %v", err)
+	}
+	c.send(t, wire.OpKVSet, b)
+	op, body := laneReadFrame(t, c, 2*time.Second)
+	if op != wire.OpStreamReceipt {
+		t.Fatalf("kv set %s/%s: got %s, want STREAM_RECEIPT", lane, key, op)
+	}
+	r, derr := wire.DecodeStreamReceipt(body)
+	if derr != nil {
+		t.Fatalf("receipt decode: %v", derr)
+	}
+	if r.Seq != wantSeq || r.Stream != lane {
+		t.Fatalf("kv set receipt {lane=%s seq=%d}, want {lane=%s seq=%d}", r.Stream, r.Seq, lane, wantSeq)
+	}
+}
+
+// laneKVDelete journals a tombstone and reads its receipt.
+func laneKVDelete(t *testing.T, c *raw, lane, key string, wantSeq uint64) {
+	t.Helper()
+	b, err := wire.EncodeKVDelete(wire.KVDelete{Lane: lane, Key: key})
+	if err != nil {
+		t.Fatalf("kv delete encode: %v", err)
+	}
+	c.send(t, wire.OpKVDelete, b)
+	op, body := laneReadFrame(t, c, 2*time.Second)
+	if op != wire.OpStreamReceipt {
+		t.Fatalf("kv delete %s/%s: got %s, want STREAM_RECEIPT", lane, key, op)
+	}
+	r, derr := wire.DecodeStreamReceipt(body)
+	if derr != nil {
+		t.Fatalf("receipt decode: %v", derr)
+	}
+	if r.Seq != wantSeq || r.Stream != lane {
+		t.Fatalf("kv delete receipt {lane=%s seq=%d}, want {lane=%s seq=%d}", r.Stream, r.Seq, lane, wantSeq)
+	}
+}
+
+// laneKVGet reads one key back; found/not-found both arrive as KV_VALUE.
+func laneKVGet(t *testing.T, c *raw, lane, key string) wire.KVValue {
+	t.Helper()
+	b, err := wire.EncodeKVGet(wire.KVGet{Lane: lane, Key: key})
+	if err != nil {
+		t.Fatalf("kv get encode: %v", err)
+	}
+	c.send(t, wire.OpKVGet, b)
+	op, body := laneReadFrame(t, c, 2*time.Second)
+	if op != wire.OpKVValue {
+		t.Fatalf("kv get %s/%s: got %s, want KV_VALUE", lane, key, op)
+	}
+	v, derr := wire.DecodeKVValue(body)
+	if derr != nil {
+		t.Fatalf("kv value decode: %v", derr)
+	}
+	if v.Lane != lane || v.Key != key {
+		t.Fatalf("kv value echo {lane=%s key=%s}, want {%s %s}", v.Lane, v.Key, lane, key)
+	}
+	if !v.Found && v.Seq != 0 {
+		t.Fatalf("not-found carries seq %d, want 0", v.Seq)
+	}
+	return v
+}
+
+// laneKVKeys reads the whole keylist back.
+func laneKVKeys(t *testing.T, c *raw, lane string) []string {
+	t.Helper()
+	b, err := wire.EncodeKVKeys(wire.KVKeys{Lane: lane})
+	if err != nil {
+		t.Fatalf("kv keys encode: %v", err)
+	}
+	c.send(t, wire.OpKVKeys, b)
+	op, body := laneReadFrame(t, c, 2*time.Second)
+	if op != wire.OpKVKeyList {
+		t.Fatalf("kv keys %s: got %s, want KV_KEYLIST", lane, op)
+	}
+	k, derr := wire.DecodeKVKeyList(body)
+	if derr != nil {
+		t.Fatalf("keylist decode: %v", derr)
+	}
+	for i := 1; i < len(k.Keys); i++ {
+		if k.Keys[i-1] > k.Keys[i] {
+			t.Fatalf("keylist out of order at %d: %q > %q", i-1, k.Keys[i-1], k.Keys[i])
+		}
+	}
+	return k.Keys
+}
+
+func TestKVSetGetTombstoneAndKeysViaWire(t *testing.T) {
+	srv, _, _ := laneServer(t)
+	c := laneConn(t, srv)
+	laneCreate(t, c, "store")
+
+	laneKVSet(t, c, "store", "cart.json", []byte(`{"n":2}`), 1)
+	laneKVSet(t, c, "store", "config/app/v2", []byte(`on`), 2)
+	laneKVSet(t, c, "store", "empty/value", nil, 3)
+
+	v := laneKVGet(t, c, "store", "cart.json")
+	if !v.Found || v.Seq != 1 || string(v.Payload) != `{"n":2}` {
+		t.Fatalf("get cart.json: %+v", v)
+	}
+	v = laneKVGet(t, c, "store", "empty/value")
+	if !v.Found || v.Seq != 3 || len(v.Payload) != 0 {
+		t.Fatalf("empty value is a legal FOUND by its flag: %+v", v)
+	}
+	if v = laneKVGet(t, c, "store", "never/was"); v.Found || v.Seq != 0 {
+		t.Fatalf("absent key answers found: %+v", v)
+	}
+
+	laneKVDelete(t, c, "store", "cart.json", 4)
+	if v = laneKVGet(t, c, "store", "cart.json"); v.Found {
+		t.Fatalf("tombstoned key answered found: %+v", v)
+	}
+	// Deleting an absent key still journals and still gets a receipt.
+	laneKVDelete(t, c, "store", "never/was", 5)
+
+	keys := laneKVKeys(t, c, "store")
+	want := []string{"config/app/v2", "empty/value"}
+	if len(keys) != len(want) {
+		t.Fatalf("keys %q, want %q", keys, want)
+	}
+	for i := range want {
+		if keys[i] != want[i] {
+			t.Fatalf("keys[%d] = %q, want %q", i, keys[i], want[i])
+		}
+	}
+}
+
+func TestKVRefusalsViaWire(t *testing.T) {
+	srv, _, _ := laneServer(t)
+	c := laneConn(t, srv)
+	laneCreate(t, c, "store")
+
+	// Key charter: the wire bounds the length half, the server owns the
+	// charset half — these all reach dispatch and refuse BAD_KEY.
+	for _, key := range []string{"h a s space", "wild*card", "pipe|", "new\nline"} {
+		b, _ := wire.EncodeKVSet(wire.KVSet{Lane: "store", Key: key})
+		c.send(t, wire.OpKVSet, b)
+		laneExpectError(t, c, wire.CodeBadKey, 2*time.Second)
+	}
+	// No such lane: buckets are lanes and the yard will not create one.
+	b, _ := wire.EncodeKVSet(wire.KVSet{Lane: "nosuch", Key: "a"})
+	c.send(t, wire.OpKVSet, b)
+	laneExpectError(t, c, wire.CodeStreamUnknown, 2*time.Second)
+	// Reads refuse the same way.
+	b, _ = wire.EncodeKVGet(wire.KVGet{Lane: "store", Key: "h a s space"})
+	c.send(t, wire.OpKVGet, b)
+	laneExpectError(t, c, wire.CodeBadKey, 2*time.Second)
+
+	// A disabled yard answers STREAM_DISABLED and stays alive. It shares
+	// nothing with the live laneServer above, so it binds its own port.
+	srv2, _ := newTestServer(t, func(cc *Config) { cc.Addr = "127.0.0.1:0"; cc.DataDir = "" })
+	c2 := laneConn(t, srv2)
+	b, _ = wire.EncodeKVSet(wire.KVSet{Lane: "store", Key: "a"})
+	c2.send(t, wire.OpKVSet, b)
+	laneExpectError(t, c2, wire.CodeStreamDisabled, 2*time.Second)
+	laneSilence(t, c2, 120*time.Millisecond)
+}
+
+func TestLaneSeqSpaceIncludesKVRows(t *testing.T) {
+	srv, _, _ := laneServer(t)
+	c := laneConn(t, srv)
+	laneCreate(t, c, "orders")
+	lanePublish(t, c, "orders", "orders.a", []byte("m1"), 1)
+	laneKVSet(t, c, "orders", "cart.json", []byte("v1"), 2)
+	lanePublish(t, c, "orders", "orders.b", []byte("m2"), 3)
+	laneKVDelete(t, c, "orders", "cart.json", 4)
+	lanePublish(t, c, "orders", "orders.c", []byte("m3"), 5)
+
+	// A consumer replays the stream rows only — KV rows journal on the same
+	// sequence space but never deliver (§2.18).
+	r := laneAttach(t, c, "orders", "audit", 7, 60000, "")
+	if r.Next != 1 {
+		t.Fatalf("fresh attach next = %d, want 1", r.Next)
+	}
+	for _, want := range []uint64{1, 3, 5} {
+		if d := laneWaitDeliver(t, c, 2*time.Second); d.Seq != want {
+			t.Fatalf("delivery seq %d, want %d (KV rows must skip replay)", d.Seq, want)
+		}
+	}
+	laneAck(t, c, 7, 1)
+	laneAck(t, c, 7, 3)
+	laneAck(t, c, 7, 5)
+	laneSilence(t, c, 200*time.Millisecond)
+
+	// The floor crossed the KV rows' sequences by arriving at 5's ack:
+	// sequences 2 and 4 are journaled facts nobody will ever deliver.
+	ub, _ := wire.EncodeUnsub(wire.Unsub{Sid: 7})
+	c.send(t, wire.OpUnsub, ub)
+	laneSilence(t, c, 150*time.Millisecond)
+	r2 := laneAttachWait(t, c, "orders", "audit", 7, 60000, "")
+	if r2.Next != 6 {
+		t.Fatalf("re-attach next = %d, want 6 (floor crossed KV rows 2 and 4)", r2.Next)
+	}
+	laneSilence(t, c, 250*time.Millisecond)
+}
+
+func TestKVIndexRebuildsAfterRestart(t *testing.T) {
+	srv, cfg, dir := laneServer(t)
+	c := laneConn(t, srv)
+	laneCreate(t, c, "store")
+	laneKVSet(t, c, "store", "keep", []byte("value-a"), 1)
+	laneKVSet(t, c, "store", "gone", []byte("dies"), 2)
+	laneKVDelete(t, c, "store", "gone", 3)
+	laneKVSet(t, c, "store", "empty/value", nil, 4)
+	lanePublish(t, c, "store", "store.note", []byte("mix"), 5)
+	laneSilence(t, c, 150*time.Millisecond)
+	srv.Stop() // positions and bytes already fsynced; nothing kept alive
+
+	srv2, _ := newTestServer(t, func(cc *Config) { cc.DataDir = dir; cc.AckWait = cfg.AckWait })
+	c2 := laneConn(t, srv2)
+	v := laneKVGet(t, c2, "store", "keep")
+	if !v.Found || v.Seq != 1 || string(v.Payload) != "value-a" {
+		t.Fatalf("recovered keep: %+v (index must rebuild from the journal)", v)
+	}
+	if v = laneKVGet(t, c2, "store", "gone"); v.Found {
+		t.Fatalf("recovered tombstoned key claims found: %+v", v)
+	}
+	v = laneKVGet(t, c2, "store", "empty/value")
+	if !v.Found || v.Seq != 4 || len(v.Payload) != 0 {
+		t.Fatalf("recovered empty value: %+v (found is the flag, not the length)", v)
+	}
+	keys := laneKVKeys(t, c2, "store")
+	if len(keys) != 2 || keys[0] != "empty/value" || keys[1] != "keep" {
+		t.Fatalf("recovered keys %q, want [empty/value keep]", keys)
+	}
+	// The lane's sequence continues across both families after recovery.
+	laneKVSet(t, c2, "store", "after", []byte("restart"), 6)
+}
