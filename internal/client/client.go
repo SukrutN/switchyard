@@ -101,6 +101,8 @@ type Client struct {
 	receiptSet atomic.Pointer[chan wire.StreamReceipt]
 	consSet    atomic.Pointer[chan wire.ConsumerReady]
 	goneSet    atomic.Pointer[chan struct{}]
+	kvValueSet atomic.Pointer[chan wire.KVValue]
+	kvKeysSet  atomic.Pointer[chan wire.KVKeyList]
 
 	// pingWait: the RPC slot for an in-flight PING. Close releases it.
 	pingMu   sync.Mutex
@@ -347,6 +349,30 @@ func (c *Client) handle(op wire.Op, body []byte) error {
 		if p := c.consSet.Load(); p != nil {
 			select {
 			case *p <- r:
+			default:
+			}
+		}
+		return nil
+	case wire.OpKVValue:
+		v, err := wire.DecodeKVValue(body)
+		if err != nil {
+			return fmt.Errorf("kv value unreadable: %w", err)
+		}
+		if p := c.kvValueSet.Load(); p != nil {
+			select {
+			case *p <- v:
+			default:
+			}
+		}
+		return nil
+	case wire.OpKVKeyList:
+		k, err := wire.DecodeKVKeyList(body)
+		if err != nil {
+			return fmt.Errorf("kv keylist unreadable: %w", err)
+		}
+		if p := c.kvKeysSet.Load(); p != nil {
+			select {
+			case *p <- k:
 			default:
 			}
 		}
