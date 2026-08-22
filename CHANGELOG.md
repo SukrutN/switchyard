@@ -37,6 +37,45 @@ Milestone M1 — pub/sub core.
   detection on Linux runners), user-facing docs, issue template, and a
   reproducible `scripts/demo.ps1`.
 
+## [0.3.0] — 2026-08-23
+
+Milestone M2, second half — KV over the same journal: a bucket is a lane,
+a set is a journaled record with a receipt, and a tombstone is as durable
+as a set.
+
+### Added
+- KV wire family (§2.18–§2.23, ops 0x15–0x1A): `KV_SET` answers with the
+  same fsynced `STREAM_RECEIPT` a publish gets, riding the lane's own
+  sequence space; `KV_GET` answers `KV_VALUE`, whose found flag is the
+  truth — an empty-but-present value is legal, so absent answers carry
+  the flag clear and seq 0, never an error; `KV_DELETE` journals the
+  tombstone and confirms it with its own seq (deleting a key that was
+  never set is still a journaled fact); `KV_KEYS` lists a lane's live
+  keys in one frame, ascending bytewise.
+- Key charter §3.2: 1..128 bytes of `[A-Za-z0-9_.-/]` — dots and slashes
+  are ordinary key bytes; keys are never parsed as subjects and never
+  become directories. One new named refusal code: `BAD_KEY` (0x13),
+  non-fatal like every lane refusal.
+- Record kinds 0x02 (KV set) and 0x03 (KV tombstone) in the lane's
+  append-only journal (§9) under the same length+CRC framing. Boot-time
+  index rebuild is one scan: last set wins, tombstones erase. Live sets
+  and deletes hold the index current under the lane's own lock.
+- Journal recovery is envelope-first: a record whose length and CRC are
+  intact but whose kind this version has never met stays on disk whole —
+  a newer family arriving from a newer server cannot poison this boot.
+- `spur kv set|get|del|keys`; the client library gains `KVSet`,
+  `KVDelete` (receipt-paired, turn-taking like publishes), `KVGet`, and
+  `KVKeys`.
+
+### Notes
+- KV rows never deliver to stream consumers: replay, sweep, and fresh
+  delivery skip every non-stream record kind, and a consumer's floor
+  crosses their sequences once the real rows are acked — one sequence
+  space per lane, one kind of row per family, no double-reading.
+- KV sets share lanes with streams deliberately: mixed `stream push` /
+  `kv set` traffic is one fsync-per-record story with gapless seq, not
+  two stores written at once.
+
 ## [0.2.0] — 2026-08-09
 
 Milestone M2 — durable streams, the journal half of a yard.
