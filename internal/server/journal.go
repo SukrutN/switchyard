@@ -33,15 +33,21 @@ const journalHeaderLen = 32
 
 var journalMagic = [8]byte{'S', 'Y', 'J', 'L', 'O', 'G', '0', '1'}
 
-// Persisted record kinds. 0x01 owns the stream family; new families append.
+// Persisted record kinds (§9). 0x01 owns the stream family; 0x02 and 0x03
+// are the KV family riding the same journals. New families append; no kind
+// is ever re-meant, the same rule the wire op table lives by.
 const (
 	KindStreamMessage byte = 0x01
+	KindKVSet         byte = 0x02
+	KindKVDelete      byte = 0x03
 )
 
 type journalRecord struct {
 	Seq      uint64
+	Kind     byte
 	Subject  string
 	Reply    string
+	Key      string
 	Payload  []byte
 	HasReply bool
 }
@@ -181,7 +187,10 @@ func (j *journal) recover() (cut int64, lastSeq uint64, records int, err error) 
 // writes serialize with sequence assignment: the journal order IS the seq
 // order it reports.
 func (j *journal) appendOne(rec journalRecord, seq uint64, sync bool) error {
-	body := encodeRecordBody(rec, seq)
+	body, err := encodeRecordBody(rec, seq)
+	if err != nil {
+		return err
+	}
 	buf := make([]byte, 0, 8+len(body))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(body)))
 	buf = append(buf, body...)
@@ -210,35 +219,66 @@ func (j *journal) close() error { return j.f.Close() }
 
 // ---- record body ----
 
-func encodeRecordBody(rec journalRecord, seq uint64) []byte {
-	b := make([]byte, 0, 8+1+2+len(rec.Subject)+1+2+len(rec.Reply)+4+len(rec.Payload))
-	b = binary.BigEndian.AppendUint64(b, seq)
-	b = append(b, KindStreamMessage)
-	var l2 [2]byte
-	binary.BigEndian.PutUint16(l2[:], uint16(len(rec.Subject)))
-	b = append(b, l2[:]...)
-	b = append(b, rec.Subject...)
-	flag := byte(0)
-	if rec.HasReply {
-		flag |= wire.FlagReplyPresent
-	}
-	b = append(b, flag)
-	if rec.HasReply {
-		binary.BigEndian.PutUint16(l2[:], uint16(len(rec.Reply)))
+func encodeRecordBody(rec journalRecord, seq uint64) ([]byte, error) {
+	switch rec.Kind {
+	case KindKVSet:
+		// seq | 0x02 | u16 keyLen|key | u32 payloadLen|payload
+		b := make([]byte, 0, 8+1+2+len(rec.Key)+4+len(rec.Payload))
+		b = binary.BigEndian.AppendUint64(b, seq)
+		b = append(b, KindKVSet)
+		b = binary.BigEndian.AppendUint16(b, uint16(len(rec.Key)))
+		b = append(b, rec.Key...)
+		b = binary.BigEndian.AppendUint32(b, uint32(len(rec.Payload)))
+		b = append(b, rec.Payload...)
+		return b, nil
+	case KindKVDelete:
+		// seq | 0x03 | u16 keyLen|key — a tombstone carries no payload.
+		b := make([]byte, 0, 8+1+2+len(rec.Key))
+		b = binary.BigEndian.AppendUint64(b, seq)
+		b = append(b, KindKVDelete)
+		b = binary.BigEndian.AppendUint16(b, uint16(len(rec.Key)))
+		b = append(b, rec.Key...)
+		return b, nil
+	case KindStreamMessage:
+		// seq | 0x01 | u16 subjLen|subj | flags | [u16 replyLen|reply]
+		// | u32 payloadLen|payload
+		b := make([]byte, 0, 8+1+2+len(rec.Subject)+1+2+len(rec.Reply)+4+len(rec.Payload))
+		b = binary.BigEndian.AppendUint64(b, seq)
+		b = append(b, KindStreamMessage)
+		var l2 [2]byte
+		binary.BigEndian.PutUint16(l2[:], uint16(len(rec.Subject)))
 		b = append(b, l2[:]...)
-		b = append(b, rec.Reply...)
+		b = append(b, rec.Subject...)
+		flag := byte(0)
+		if rec.HasReply {
+			flag |= wire.FlagReplyPresent
+		}
+		b = append(b, flag)
+		if rec.HasReply {
+			binary.BigEndian.PutUint16(l2[:], uint16(len(rec.Reply)))
+			b = append(b, l2[:]...)
+			b = append(b, rec.Reply...)
+		}
+		var l4 [4]byte
+		binary.BigEndian.PutUint32(l4[:], uint32(len(rec.Payload)))
+		b = append(b, l4[:]...)
+		b = append(b, rec.Payload...)
+		return b, nil
+	default:
+		return nil, fmt.Errorf("record kind 0x%02X has no encoder", rec.Kind)
 	}
-	var l4 [4]byte
-	binary.BigEndian.PutUint32(l4[:], uint32(len(rec.Payload)))
-	b = append(b, l4[:]...)
-	b = append(b, rec.Payload...)
-	return b
 }
 
 // parseRecordBody decodes one journal body with a hand-rolled cursor. The
 // server package owns its own byte cursor here rather than borrowing the
 // wire's private decoder — the file format is a server contract, and keeping
 // one small reader local tells that story in code.
+//
+// A body whose envelope (length + CRC) is intact but whose kind this version
+// does not know is yielded as an opaque record, not an error: a newer
+// server's extra families are legible bytewise even when their layout is not
+// parsed here, and recovery keeps whole records whole. Callers filter on
+// Kind before touching any other field.
 func parseRecordBody(b []byte) (seq uint64, rec journalRecord, err error) {
 	c := recCursor{buf: b}
 	var ok bool
@@ -247,29 +287,49 @@ func parseRecordBody(b []byte) (seq uint64, rec journalRecord, err error) {
 		return 0, journalRecord{}, errors.New("journal body too short for seq+kind")
 	}
 	kind, _ := c.u8()
-	if kind != KindStreamMessage {
-		return 0, journalRecord{}, fmt.Errorf("journal kind 0x%02X is not a stream record", kind)
-	}
-	subject, ok := c.strA(wire.MaxSubjectLen)
-	if !ok {
-		return 0, journalRecord{}, errCursor("journal.subject")
-	}
-	flags := byte(0)
-	if c.left() > 0 {
-		flags, _ = c.u8()
-	}
-	reply := ""
-	if flags&wire.FlagReplyPresent != 0 {
-		reply, ok = c.strA(wire.MaxReplyLen)
+	switch kind {
+	case KindStreamMessage:
+		subject, ok := c.strA(wire.MaxSubjectLen)
 		if !ok {
-			return 0, journalRecord{}, errCursor("journal.reply")
+			return 0, journalRecord{}, errCursor("journal.subject")
 		}
+		flags := byte(0)
+		if c.left() > 0 {
+			flags, _ = c.u8()
+		}
+		reply := ""
+		if flags&wire.FlagReplyPresent != 0 {
+			reply, ok = c.strA(wire.MaxReplyLen)
+			if !ok {
+				return 0, journalRecord{}, errCursor("journal.reply")
+			}
+		}
+		payload, ok := c.bytes32()
+		if !ok {
+			return 0, journalRecord{}, errCursor("journal.payload")
+		}
+		return seq, journalRecord{Kind: kind, Subject: subject, Reply: reply, Payload: payload, HasReply: flags&wire.FlagReplyPresent != 0}, nil
+	case KindKVSet:
+		key, ok := c.strA(wire.MaxKeyLen)
+		if !ok {
+			return 0, journalRecord{}, errCursor("journal.key")
+		}
+		payload, ok := c.bytes32()
+		if !ok {
+			return 0, journalRecord{}, errCursor("journal.payload")
+		}
+		return seq, journalRecord{Kind: kind, Key: key, Payload: payload}, nil
+	case KindKVDelete:
+		key, ok := c.strA(wire.MaxKeyLen)
+		if !ok {
+			return 0, journalRecord{}, errCursor("journal.key")
+		}
+		return seq, journalRecord{Kind: kind, Key: key}, nil
+	default:
+		// A family this version has never met. Envelope is proven (CRC
+		// above the parse), so the record stays on disk untouched.
+		return seq, journalRecord{Kind: kind}, nil
 	}
-	payload, ok := c.bytes32()
-	if !ok {
-		return 0, journalRecord{}, errCursor("journal.payload")
-	}
-	return seq, journalRecord{Subject: subject, Reply: reply, Payload: payload, HasReply: flags&wire.FlagReplyPresent != 0}, nil
 }
 
 func errCursor(field string) error { return errors.New(field + " out of journal body bounds") }

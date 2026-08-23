@@ -246,6 +246,168 @@ func (c *Client) DetachLane(sid uint32) error {
 	return c.Unsubscribe(sid)
 }
 
+// ---- the KV API (§2.18–§2.23): keys on the same lanes ----
+
+// KVSet stores a key-value pair on a lane's journal and waits for the
+// receipt — the same receipt a publish gets, so the returned seq is the
+// record's position in the same sequence space as every message on the
+// lane. The lane must exist ("stream create"), the charter (§3.2) bounds
+// the key.
+func (c *Client) KVSet(ctx context.Context, lane, key string, payload []byte) (uint64, error) {
+	c.rpcMu.Lock()
+	defer c.rpcMu.Unlock()
+
+	receipt := make(chan wire.StreamReceipt, 1)
+	c.receiptSet.Store(&receipt)
+	defer func() {
+		c.receiptSet.Store(nil)
+		select {
+		case <-receipt:
+		default:
+		}
+	}()
+	errSlot := c.installRPCErr()
+	defer c.clearRPCErr()
+
+	body, err := wire.EncodeKVSet(wire.KVSet{Lane: lane, Key: key, Payload: payload})
+	if err != nil {
+		return 0, err
+	}
+	if err := c.write(wire.OpKVSet, body); err != nil {
+		return 0, fmt.Errorf("send kv set: %w", err)
+	}
+	select {
+	case r := <-receipt:
+		return r.Seq, nil
+	case e := <-errSlot:
+		return 0, e
+	case <-ctx.Done():
+		return 0, fmt.Errorf("kv set %s/%s: %w", lane, key, ctx.Err())
+	case <-c.done:
+		return 0, fmt.Errorf("kv set %s/%s: session closed", lane, key)
+	}
+}
+
+// KVDelete journals a tombstone and waits for its receipt; deletes of keys
+// that were never set are still recorded (§2.20) and still get a seq.
+func (c *Client) KVDelete(ctx context.Context, lane, key string) (uint64, error) {
+	c.rpcMu.Lock()
+	defer c.rpcMu.Unlock()
+
+	receipt := make(chan wire.StreamReceipt, 1)
+	c.receiptSet.Store(&receipt)
+	defer func() {
+		c.receiptSet.Store(nil)
+		select {
+		case <-receipt:
+		default:
+		}
+	}()
+	errSlot := c.installRPCErr()
+	defer c.clearRPCErr()
+
+	body, err := wire.EncodeKVDelete(wire.KVDelete{Lane: lane, Key: key})
+	if err != nil {
+		return 0, err
+	}
+	if err := c.write(wire.OpKVDelete, body); err != nil {
+		return 0, fmt.Errorf("send kv delete: %w", err)
+	}
+	select {
+	case r := <-receipt:
+		return r.Seq, nil
+	case e := <-errSlot:
+		return 0, e
+	case <-ctx.Done():
+		return 0, fmt.Errorf("kv delete %s/%s: %w", lane, key, ctx.Err())
+	case <-c.done:
+		return 0, fmt.Errorf("kv delete %s/%s: session closed", lane, key)
+	}
+}
+
+// KVGet reads one key. A key that was never set — or whose tombstone won —
+// returns found=false with no error: an answer, not a refusal (§2.19).
+func (c *Client) KVGet(ctx context.Context, lane, key string) (KVValue, error) {
+	c.rpcMu.Lock()
+	defer c.rpcMu.Unlock()
+
+	value := make(chan wire.KVValue, 1)
+	c.kvValueSet.Store(&value)
+	defer func() {
+		c.kvValueSet.Store(nil)
+		select {
+		case <-value:
+		default:
+		}
+	}()
+	errSlot := c.installRPCErr()
+	defer c.clearRPCErr()
+
+	body, err := wire.EncodeKVGet(wire.KVGet{Lane: lane, Key: key})
+	if err != nil {
+		return KVValue{}, err
+	}
+	if err := c.write(wire.OpKVGet, body); err != nil {
+		return KVValue{}, fmt.Errorf("send kv get: %w", err)
+	}
+	select {
+	case v := <-value:
+		return KVValue{Seq: v.Seq, Found: v.Found, Payload: append([]byte(nil), v.Payload...)}, nil
+	case e := <-errSlot:
+		return KVValue{}, e
+	case <-ctx.Done():
+		return KVValue{}, fmt.Errorf("kv get %s/%s: %w", lane, key, ctx.Err())
+	case <-c.done:
+		return KVValue{}, fmt.Errorf("kv get %s/%s: session closed", lane, key)
+	}
+}
+
+// KVValue is one key back from the lane's store. Found tells whether the
+// value bytes ride; an empty-but-found value is legal — the flag is the
+// truth, the length is a detail.
+type KVValue struct {
+	Seq     uint64
+	Found   bool
+	Payload []byte
+}
+
+// KVKeys asks a lane for its live keys, ascending bytewise. Empty bucket is
+// an empty slice, not an error.
+func (c *Client) KVKeys(ctx context.Context, lane string) ([]string, error) {
+	c.rpcMu.Lock()
+	defer c.rpcMu.Unlock()
+
+	keys := make(chan wire.KVKeyList, 1)
+	c.kvKeysSet.Store(&keys)
+	defer func() {
+		c.kvKeysSet.Store(nil)
+		select {
+		case <-keys:
+		default:
+		}
+	}()
+	errSlot := c.installRPCErr()
+	defer c.clearRPCErr()
+
+	body, err := wire.EncodeKVKeys(wire.KVKeys{Lane: lane})
+	if err != nil {
+		return nil, err
+	}
+	if err := c.write(wire.OpKVKeys, body); err != nil {
+		return nil, fmt.Errorf("send kv keys: %w", err)
+	}
+	select {
+	case k := <-keys:
+		return k.Keys, nil
+	case e := <-errSlot:
+		return nil, e
+	case <-ctx.Done():
+		return nil, fmt.Errorf("kv keys %s: %w", lane, ctx.Err())
+	case <-c.done:
+		return nil, fmt.Errorf("kv keys %s: session closed", lane)
+	}
+}
+
 // ---- shared plumbing for the round-trips ----
 
 // installRPCErr adds the refusal route for the in-flight RPC. rpcMu makes
