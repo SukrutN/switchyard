@@ -1082,3 +1082,159 @@ func TestKVIndexRebuildsAfterRestart(t *testing.T) {
 	// The lane's sequence continues across both families after recovery.
 	laneKVSet(t, c2, "store", "after", []byte("restart"), 6)
 }
+
+// ---- the console family (§2.24–§2.27) ----
+// The yardmaster speaks raw wire too: YARD_STATE and LANE_STATE are the
+// yard's read-only speech, and these tests are the print's contract.
+
+// laneYardState asks for the summary and returns the decoded state.
+func laneYardState(t *testing.T, c *raw) wire.YardState {
+	t.Helper()
+	b, err := wire.EncodeYardInfo(wire.YardInfo{})
+	if err != nil {
+		t.Fatalf("yard info encode: %v", err)
+	}
+	c.send(t, wire.OpYardInfo, b)
+	op, body := laneReadFrame(t, c, 2*time.Second)
+	if op != wire.OpYardState {
+		t.Fatalf("yard info: got %s, want YARD_STATE", op)
+	}
+	y, err := wire.DecodeYardState(body)
+	if err != nil {
+		t.Fatalf("yard state decode: %v", err)
+	}
+	return y
+}
+
+// laneLaneState drills into one lane and returns the decoded state.
+func laneLaneState(t *testing.T, c *raw, lane string) wire.LaneState {
+	t.Helper()
+	b, err := wire.EncodeLaneInfo(wire.LaneInfo{Lane: lane})
+	if err != nil {
+		t.Fatalf("lane info encode: %v", err)
+	}
+	c.send(t, wire.OpLaneInfo, b)
+	op, body := laneReadFrame(t, c, 2*time.Second)
+	if op != wire.OpLaneState {
+		t.Fatalf("lane info %s: got %s, want LANE_STATE", lane, op)
+	}
+	l, err := wire.DecodeLaneState(body)
+	if err != nil {
+		t.Fatalf("lane state decode: %v", err)
+	}
+	if l.Lane != lane {
+		t.Fatalf("lane state echo = %q, want %q", l.Lane, lane)
+	}
+	return l
+}
+
+func TestYardConsoleViaWire(t *testing.T) {
+	srv, _, _ := laneServer(t)
+	c := laneConn(t, srv)
+	laneCreate(t, c, "orders")
+	laneCreate(t, c, "store")
+	lanePublish(t, c, "orders", "orders.a", []byte("m1"), 1)
+	lanePublish(t, c, "orders", "orders.b", []byte("m2"), 2)
+	laneKVSet(t, c, "orders", "cart.json", []byte("v1"), 3)
+
+	// A consumer attached but not yet acking: delivered, pending, owed.
+	r := laneAttachWait(t, c, "orders", "audit", 7, 60000, "")
+	if r.Next != 1 {
+		t.Fatalf("fresh attach next = %d, want 1", r.Next)
+	}
+	for want := uint64(1); want <= 2; want++ {
+		if d := laneWaitDeliver(t, c, 2*time.Second); d.Seq != want {
+			t.Fatalf("replay delivery seq %d, want %d", d.Seq, want)
+		}
+	}
+	laneAck(t, c, 7, 1)
+	laneAck(t, c, 7, 2)
+
+	y := laneYardState(t, c)
+	if y.Version != Version {
+		t.Fatalf("yard version = %q, want %q (the build's own speech)", y.Version, Version)
+	}
+	if y.UptimeSec > 10 {
+		t.Fatalf("uptime = %ds, want seconds (the yard just booted)", y.UptimeSec)
+	}
+	if y.Sessions < 1 {
+		t.Fatalf("sessions = %d, want the query itself counted", y.Sessions)
+	}
+	if len(y.Lanes) != 2 || y.Lanes[0].Name != "orders" || y.Lanes[0].Seq != 3 || y.Lanes[1].Name != "store" || y.Lanes[1].Seq != 0 {
+		t.Fatalf("lane table %+v, want [orders seq 3, store seq 0] ascending (KV rows own the seq space)", y.Lanes)
+	}
+	if len(y.Quarantined) != 0 {
+		t.Fatalf("quarantined %q, want none on a healthy yard", y.Quarantined)
+	}
+
+	l := laneLaneState(t, c, "orders")
+	if l.Seq != 3 || l.Quarantined || l.JournalBytes <= journalHeaderLen || l.KeyCount != 1 {
+		t.Fatalf("orders state %+v, want seq 3, sane journal bytes, 1 live key", l)
+	}
+	if len(l.Consumers) != 1 {
+		t.Fatalf("orders consumers %+v, want the audit drill-down", l.Consumers)
+	}
+	cu := l.Consumers[0]
+	if cu.Name != "audit" || cu.Floor != 3 || cu.Pending != 0 || !cu.Attached {
+		t.Fatalf("audit row %+v, want floor 3: the acks crossed the KV row's seq at once (never-sent rows owe nobody)", cu)
+	}
+
+	// Detach: the consumer parks holding its floor, debts become silent.
+	ub, _ := wire.EncodeUnsub(wire.Unsub{Sid: 7})
+	c.send(t, wire.OpUnsub, ub)
+	laneSilence(t, c, 150*time.Millisecond)
+	l = laneLaneState(t, c, "orders")
+	if len(l.Consumers) != 1 || l.Consumers[0].Name != "audit" || l.Consumers[0].Attached {
+		t.Fatalf("parked row %+v, want audit with ATTACHED clear", l.Consumers)
+	}
+	if l.Consumers[0].Floor != 3 {
+		t.Fatalf("parked floor = %d, want 3 (nothing durable changed on detach)", l.Consumers[0].Floor)
+	}
+
+	// A lane with nothing in it says so plainly: a bare journal is the
+	// 32-byte header and nothing else.
+	l = laneLaneState(t, c, "store")
+	if l.Seq != 0 || l.KeyCount != 0 || l.JournalBytes != journalHeaderLen || len(l.Consumers) != 0 {
+		t.Fatalf("empty lane %+v, want zeros and a header-only journal", l)
+	}
+}
+
+func TestLaneConsoleRefusals(t *testing.T) {
+	srv, _, _ := laneServer(t)
+	c := laneConn(t, srv)
+	laneCreate(t, c, "orders")
+
+	// No such lane: the drill-down must tell the truth about absence.
+	b, _ := wire.EncodeLaneInfo(wire.LaneInfo{Lane: "nosuch"})
+	c.send(t, wire.OpLaneInfo, b)
+	laneExpectError(t, c, wire.CodeStreamUnknown, 2*time.Second)
+
+	// A stray trailing byte in the exact-empty request is fatal: unknown
+	// shape is kill, not a shrug.
+	yb, _ := wire.EncodeYardInfo(wire.YardInfo{})
+	c.send(t, wire.OpYardInfo, append(yb, 0x00))
+	eop, ebody, rerr := c.read(t, 2*time.Second)
+	if rerr != nil {
+		t.Fatalf("awaiting fatal answer: %v", rerr)
+	}
+	if eop != wire.OpError {
+		t.Fatalf("got %s, want the MALFORMED kill", eop)
+	}
+	e, derr := wire.DecodeError(ebody)
+	if derr != nil || !e.Fatal || e.Code != wire.CodeMalformed {
+		t.Fatalf("yard stray-byte answer %+v (err %v), want fatal MALFORMED", e, derr)
+	}
+
+	// A disabled yard still speaks the summary — zero lanes, alive — and
+	// refuses the drill-down it has nothing to read.
+	srv2, _ := newTestServer(t, func(cc *Config) { cc.Addr = "127.0.0.1:0"; cc.DataDir = "" })
+	c2 := laneConn(t, srv2)
+	y2 := laneYardState(t, c2)
+	if len(y2.Lanes) != 0 || len(y2.Quarantined) != 0 {
+		t.Fatalf("disabled yard's summary %+v, want no lanes and honest silence", y2)
+	}
+	b, _ = wire.EncodeLaneInfo(wire.LaneInfo{Lane: "orders"})
+	c2.send(t, wire.OpLaneInfo, b)
+	laneExpectError(t, c2, wire.CodeStreamDisabled, 2*time.Second)
+	laneSilence(t, c2, 120*time.Millisecond)
+}
