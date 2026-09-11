@@ -103,6 +103,8 @@ type Client struct {
 	goneSet    atomic.Pointer[chan struct{}]
 	kvValueSet atomic.Pointer[chan wire.KVValue]
 	kvKeysSet  atomic.Pointer[chan wire.KVKeyList]
+	yardSet    atomic.Pointer[chan wire.YardState]
+	laneSet    atomic.Pointer[chan wire.LaneState]
 
 	// pingWait: the RPC slot for an in-flight PING. Close releases it.
 	pingMu   sync.Mutex
@@ -373,6 +375,30 @@ func (c *Client) handle(op wire.Op, body []byte) error {
 		if p := c.kvKeysSet.Load(); p != nil {
 			select {
 			case *p <- k:
+			default:
+			}
+		}
+		return nil
+	case wire.OpYardState:
+		y, err := wire.DecodeYardState(body)
+		if err != nil {
+			return fmt.Errorf("yard state unreadable: %w", err)
+		}
+		if p := c.yardSet.Load(); p != nil {
+			select {
+			case *p <- y:
+			default:
+			}
+		}
+		return nil
+	case wire.OpLaneState:
+		l, err := wire.DecodeLaneState(body)
+		if err != nil {
+			return fmt.Errorf("lane state unreadable: %w", err)
+		}
+		if p := c.laneSet.Load(); p != nil {
+			select {
+			case *p <- l:
 			default:
 			}
 		}
