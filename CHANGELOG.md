@@ -4,6 +4,43 @@ All notable changes to switchyard are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [SemVer](https://semver.org/) once we reach 1.0.
 
+## [0.4.0] — 2026-09-14
+
+Milestone M3 — the Yardmaster console: the yard's state, spoken on the
+wire and read from spur. Read-only ops; the console is a lens, not a
+lever.
+
+### Added
+- Console wire family (§2.24–§2.27, ops 0x1B–0x1E): `YARD_INFO` answers
+  `YARD_STATE` (§2.25) — the build's version, uptime in seconds, live
+  sessions (the asking one included), every lane ascending with its last
+  journaled seq (KV rows included: one sequence space per lane, §9), and
+  every quarantined lane named in full — a lane whose writes have failed
+  once is exactly what an operator must not have to guess at.
+  `LANE_INFO` answers `LANE_STATE` (§2.27) — last journaled seq, the
+  quarantine flag, the journal file's byte size on disk, live key count,
+  and the consumer table: each durable consumer's floor (the sequence it
+  resumes from), how many delivered rows still owe acks, and whether it
+  is attached this second.
+- Honesty clause (§2.25): these are snapshots assembled lane by lane
+  under each lane's own lock, followed by the hub's — consecutive rows
+  may differ by the moments between reads, and the doc says so. No
+  global freeze, no lying either.
+- `YARD_STATE` answers on any handshaked yard, memory-only included
+  (zero lanes is a legal answer); `LANE_INFO` refuses a missing lane
+  with `STREAM_UNKNOWN` and a disabled yard with `STREAM_DISABLED`. The
+  summary body's exactness is the shared rule — a stray trailing byte
+  is a fatal `MALFORMED` kill like anywhere else.
+- Console snapshots in the engine: `consoleSeq` and `consoleState` on
+  each lane under its own lock (an attached row is `sess != nil &&`
+  not dead — the sweep's own definition), a registry scan for the
+  yard's table, and the hub's session count plus boot time.
+- The client library gains `YardInfo` and `LaneInfo` — one synchronous
+  turn each under the shared RPC discipline, refusals surfacing as
+  errors while `Errors()` keeps the copy. `spur yard` prints the
+  summary; `spur yard lane LANE` drills down; quarantined lanes and
+  parked consumers read plainly from a terminal.
+
 ## [0.1.0] — 2026-07-18
 
 Milestone M1 — pub/sub core.
