@@ -8,6 +8,7 @@
 //	spur stream create orders              give the yard a lane to journal
 //	spur stream push  orders orders.9001.paid ok
 //	spur stream watch orders billing       replay + follow a durable consumer
+//	spur yard                              the yardmaster's console view
 //
 // Quote subjects in shells: '*' is a glob character and shells eat it.
 package main
@@ -39,6 +40,8 @@ usage:
   spur kv get   [-addr host:port] LANE KEY
   spur kv del   [-addr host:port] LANE KEY
   spur kv keys  [-addr host:port] LANE
+  spur yard              read the yard's console: version, uptime, lanes
+  spur yard lane LANE    drill into one lane: seq, consumers, positions
 
 Common flags: -addr (default 127.0.0.1:4780).
 
@@ -93,6 +96,8 @@ func run() error {
 		return cmdStream(args)
 	case "kv":
 		return cmdKv(args)
+	case "yard":
+		return cmdYard(args)
 	case "-h", "help", "--help":
 		fmt.Println(usage)
 		return nil
@@ -604,4 +609,122 @@ func cmdKvKeys(args []string) error {
 		fmt.Println(key)
 	}
 	return nil
+}
+
+// ---- yard: the yardmaster's console (§2.24–§2.27) ----
+
+// cmdYard dispatches the read-only console. The lane drill-down is a
+// subcommand so its flags follow the house order (flags after the verb):
+// `spur yard` and `spur yard lane -addr X orders` both parse naturally.
+func cmdYard(args []string) error {
+	if len(args) > 0 && args[0] == "lane" {
+		return cmdYardLane(args[1:])
+	}
+	return cmdYardSummary(args)
+}
+
+func cmdYardSummary(args []string) error {
+	fs, addr := newFlagset("yard")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return usageError{"usage: spur yard  (drill down with: spur yard lane LANE)"}
+	}
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	y, err := c.YardInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("yard: %w", err)
+	}
+	printYard(y)
+	return nil
+}
+
+func cmdYardLane(args []string) error {
+	fs, addr := newFlagset("yard lane")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return usageError{"usage: spur yard lane LANE"}
+	}
+	lane := fs.Arg(0)
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	l, err := c.LaneInfo(ctx, lane)
+	if err != nil {
+		return fmt.Errorf("lane %s: %w", lane, err)
+	}
+	printLaneState(l)
+	return nil
+}
+
+func printYard(y client.YardState) {
+	fmt.Printf("yard %s - up %s, %d sessions, %d lanes (%d quarantined)\n",
+		y.Version, humanUptime(y.UptimeSec), y.Sessions, len(y.Lanes), len(y.Quarantined))
+	if len(y.Lanes) == 0 {
+		fmt.Println("  (no lanes - a memory-only yard journals nothing)")
+	}
+	q := make(map[string]bool, len(y.Quarantined))
+	for _, name := range y.Quarantined {
+		q[name] = true
+	}
+	for _, row := range y.Lanes {
+		if q[row.Name] {
+			fmt.Printf("  %-16s seq %-8d QUARANTINED - writes refused until restart\n", row.Name, row.Seq)
+		} else {
+			fmt.Printf("  %-16s seq %d\n", row.Name, row.Seq)
+		}
+	}
+}
+
+func printLaneState(l client.LaneState) {
+	posture := "healthy"
+	if l.Quarantined {
+		posture = "QUARANTINED - writes refused until restart"
+	}
+	fmt.Printf("lane %s - seq %d, journal %d bytes, %d keys, %s\n",
+		l.Lane, l.Seq, l.JournalBytes, l.KeyCount, posture)
+	if len(l.Consumers) == 0 {
+		fmt.Println("  (no consumers - attach one with: spur stream watch)")
+	}
+	for _, c := range l.Consumers {
+		spot := "detached"
+		if c.Attached {
+			spot = "attached"
+		}
+		fmt.Printf("  %-16s floor %-6d pending %-4d %s\n", c.Name, c.Floor, c.Pending, spot)
+	}
+}
+
+// humanUptime turns the summary's whole seconds into speech a terminal
+// reader parses at a glance: 77s, 2m3s, 1h2m3s, 5d4h2m.
+func humanUptime(sec uint64) string {
+	d := sec / 86400
+	h := sec % 86400 / 3600
+	m := sec % 3600 / 60
+	s := sec % 60
+	switch {
+	case d > 0:
+		return fmt.Sprintf("%dd%dh%dm", d, h, m)
+	case h > 0:
+		return fmt.Sprintf("%dh%dm%ds", h, m, s)
+	case m > 0:
+		return fmt.Sprintf("%dm%ds", m, s)
+	default:
+		return fmt.Sprintf("%ds", s)
+	}
 }

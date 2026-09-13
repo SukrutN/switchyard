@@ -213,6 +213,31 @@ func (r *laneRegistry) resolve(name string) *stream {
 	return r.byName[name]
 }
 
+// state snaps the registry for the console family (§2.25): every lane with
+// its last journaled sequence, plus the names of the lanes whose writes
+// have failed. The registry lock only identifies the set; each row's facts
+// are read under that lane's own lock, so rows may straddle a hair of time
+// — the console's contract (§2.25) owns that honesty in print.
+func (r *laneRegistry) state() ([]wire.YardLane, []string) {
+	r.mu.Lock()
+	lives := make([]*stream, 0, len(r.byName))
+	for _, st := range r.byName {
+		lives = append(lives, st)
+	}
+	r.mu.Unlock()
+	sort.Slice(lives, func(i, j int) bool { return lives[i].name < lives[j].name })
+	rows := make([]wire.YardLane, 0, len(lives))
+	var quarantined []string
+	for _, st := range lives {
+		seq, q := st.consoleSeq()
+		rows = append(rows, wire.YardLane{Name: st.name, Seq: seq})
+		if q {
+			quarantined = append(quarantined, st.name)
+		}
+	}
+	return rows, quarantined
+}
+
 // shutdown closes every journal handle at server Stop. Positions and bytes
 // were fsynced at their write time; nothing more is owed to disk.
 func (r *laneRegistry) shutdown() {
@@ -365,6 +390,49 @@ func (st *stream) kvKeys() []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// consoleSeq is the yard table's row: the lane's last journaled sequence
+// and whether its writes have failed. Two facts, one lock turn.
+func (st *stream) consoleSeq() (uint64, bool) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.seq, st.quarantined
+}
+
+// consoleState reads one lane's drill-down for the console (§2.27) under
+// the lane's own lock, with the journal file's byte size from the OS —
+// that number belongs to the filesystem, not this lock, and the console
+// names it as the size the file claims. Consumers arrive ascending by
+// name; a parked consumer keeps its floor and its pending debts.
+func (st *stream) consoleState() wire.LaneState {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	ls := wire.LaneState{
+		Lane:        st.name,
+		Seq:         st.seq,
+		Quarantined: st.quarantined,
+		KeyCount:    uint32(len(st.kvi)),
+	}
+	if fi, err := st.j.f.Stat(); err == nil {
+		ls.JournalBytes = uint64(fi.Size())
+	}
+	names := make([]string, 0, len(st.consumers))
+	for _, c := range st.consumers {
+		names = append(names, c.name)
+	}
+	sort.Strings(names)
+	ls.Consumers = make([]wire.LaneConsumer, 0, len(names))
+	for _, name := range names {
+		c := st.consumers[name]
+		ls.Consumers = append(ls.Consumers, wire.LaneConsumer{
+			Name:     c.name,
+			Floor:    c.floor,
+			Pending:  uint32(len(c.pending)),
+			Attached: c.sess != nil && !c.sess.dead(),
+		})
+	}
+	return ls
 }
 
 // fanOutLocked hands seq to every attached consumer whose filter catches the
