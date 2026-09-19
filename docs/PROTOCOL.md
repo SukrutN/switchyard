@@ -9,9 +9,10 @@ Conventions: sentences are normative. Numbers are bus-stable: renumbering
 an op or an error code is a new protocol version, not a patch. The op
 table grows by appending: a new op family gets fresh numbers and never
 re-means an old one — the durable stream family (§2.8–§2.17) was the
-first append, the KV family (§2.18–§2.23) the second, and the console
-family (§2.24–§2.27) the third — and older clients keep working because
-their ops did not move and unknown inbound ops have always been fatal.
+first append, the KV family (§2.18–§2.23) the second, the console
+family (§2.24–§2.27) the third, and the auth pair (§2.28–§2.29) the
+fourth — and older clients keep working because their ops did not move
+and unknown inbound ops have always been fatal.
 
 ## §1 Frame layout
 
@@ -39,6 +40,17 @@ Rules:
   is fatal close.
 - Ops are independent units; server-initiated frames (PING, DELIVER) can
   interleave client→server traffic at any boundary between frames.
+
+The transport may be wrapped in TLS: the same frames ride a `tls.Conn`
+where a bare TCP socket would be. Same magic, same layouts, same
+disciplines — nothing below knows, nothing above cares. How TLS happens
+is engine configuration, not protocol: a yard that runs with a
+certificate and key speaks TLS to every session it accepts (dial from
+spur with `-tls`), and a yard's log line says which it is. Trust is the
+client's own bar: a self-signed certificate verified against nothing is
+a lab tool (`spur -tls -insecure`), never an operating mode. The
+password rides inside the wrap or not at all: §2.28's token on an
+unwrapped line is a password read aloud in a hallway.
 
 ## §2 Ops
 
@@ -74,10 +86,13 @@ Rules:
 |0x1C | YARD_STATE      | server→client | §2.25 |
 |0x1D | LANE_INFO       | client→server | §2.26 |
 |0x1E | LANE_STATE      | server→client | §2.27 |
+|0x1F | AUTHENTICATE    | client→server | §2.28 |
+|0x20 | AUTH_OK         | server→client | §2.29 |
 
 Any other op code is fatal (`UNKNOWN_OP`). A client sending WELCOME, DELIVER,
 STREAM_READY, STREAM_RECEIPT, CONSUMER_READY, STREAM_DELIVER, STREAM_GONE,
-KV_VALUE, KV_KEYLIST, YARD_STATE, or LANE_STATE is fatal (`MALFORMED`) —
+KV_VALUE, KV_KEYLIST, YARD_STATE, LANE_STATE, or AUTH_OK is fatal
+(`MALFORMED`) —
 those numbers are reserved
 for server speech.
 
@@ -528,6 +543,56 @@ durable position — the number it will resume from — and `pending`
 counts the rows it owes acks for; a detached consumer stays in the
 list with ATTACHED clear, holding its floor, owed nothing.
 
+## The auth pair (§2.28–§2.29)
+
+One shared token, spoken before the handshake: the simplest lock that
+makes a yard company-usable. Not a nickname for multi-tenant identity —
+a yard has one gate, and the people behind it are trusted. The token is
+compared in constant time (`crypto/subtle`): a wrong token's refusal is
+no faster than a right token's welcome. TLS is §1's job; the token
+rides inside the wrap when one is running, and a yard that demands a
+token should demand a wrap to carry it through — one is configuration,
+the other is protocol, and they compose without knowing each other.
+
+### §2.28 AUTHENTICATE
+
+```
+u16  tokenLen   1..256
+u8   token[tokenLen]
+```
+
+The gate's password. Legal only on a session that has not yet HELLO'd —
+identity belongs to the door, not the hallway. The answer is AUTH_OK
+(§2.29), or a fatal `NOT_ALLOWED`, or nothing at all:
+
+- Yard tokened, token matches → `AUTH_OK`, the session may HELLO. A
+  HELLO from a session that skipped it → fatal `NOT_ALLOWED`. PING and
+  BYE stay open — they carry no state and answer no questions about the
+  yard's content, and a load balancer deserves a liveness answer.
+- Yard tokened, token does not match → fatal `NOT_ALLOWED`; the
+  connection ends. There is no retry on the same socket: reconnect and
+  try again, because a gate does not sit and listen to guesses.
+- Yard tokenless → any well-formed token is answered with `AUTH_OK`.
+  Nothing to protect, nothing to check. A tokenless yard's boot log
+  says `auth=off`; an operator who believes otherwise has not read the
+  log.
+- Handshake already done → fatal `NOT_ALLOWED` — the door is behind
+  the client now.
+
+An empty or oversize token is a shape error and dies with `MALFORMED`
+like every other exactness breach. Client-sent `AUTH_OK` is fatal
+(`MALFORMED`): that number is the yard's speech.
+
+### §2.29 AUTH_OK
+
+```
+(empty body)
+```
+
+The gate nods. No payload, no negotiation — the session is free to
+HELLO. It says nothing about whether the yard wanted a token; that
+fact is the yard's config and its log, not the wire's.
+
 ## §3 Subject charter
 
 A subject or pattern is dot-separated tokens under these rules:
@@ -607,7 +672,8 @@ serves nobody.
 
 Fatal (the frame is the last thing on the wire, then the connection
 ends): `MALFORMED`, `UNSUPPORTED_VERSION`, `SLOW_CONSUMER`, `UNKNOWN_OP`,
-`IDLE_TIMEOUT`, and any client-sent reserved-server op (§2).
+`IDLE_TIMEOUT`, `NOT_ALLOWED`, and any client-sent reserved-server op
+(§2).
 
 ## §6 Error codes
 
@@ -632,6 +698,7 @@ ends): `MALFORMED`, `UNSUPPORTED_VERSION`, `SLOW_CONSUMER`, `UNKNOWN_OP`,
 | 0x11 | STREAM_DISABLED     | no     | this yard has no data dir; no lanes        |
 | 0x12 | SERVER_FAULT        | no     | storage could not honor the op; retry |
 | 0x13 | BAD_KEY             | no     | KV key off the §3.2 charter                |
+| 0x14 | NOT_ALLOWED         | yes    | the gate said no: wrong token, no token, or auth after the door |
 
 ## §7 Limits and the skip rule
 
@@ -646,6 +713,7 @@ ends): `MALFORMED`, `UNSUPPORTED_VERSION`, `SLOW_CONSUMER`, `UNKNOWN_OP`,
 | server label   | 48                   |
 | stream / consumer name | 64           |
 | KV key bytes   | 128                  |
+| auth token     | 1..256 bytes         |
 | deliver queue (per session) | 512 messages |
 | control queue (per session) | 256 frames  |
 | consumer ack-wait default | 10 seconds |
