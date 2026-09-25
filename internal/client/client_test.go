@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"testing"
 	"time"
@@ -16,18 +17,44 @@ type fakeYard struct {
 	t    *testing.T
 	addr string
 	wr   *wire.Writer
+
+	// gate answers the pre-HELLO side of the door when set: it sees the
+	// first frame the client speaks and decides whether the yard proceeds
+	// to the handshake (§2.28). tlsConf wraps every accepted session.
+	gate    func(y *fakeYard, op wire.Op, body []byte) bool
+	tlsConf *tls.Config
 }
 
 // newFakeYard runs a loopback listener; onOp runs per frame after the
 // HELLO/WELCOME handshake completes.
 func newFakeYard(t *testing.T, onOp func(y *fakeYard, op wire.Op, body []byte)) *fakeYard {
 	t.Helper()
+	return startFakeYard(t, &fakeYard{}, onOp)
+}
+
+// newFakeYardGated puts a token gate in front of the handshake: the gate
+// answers the first frame itself (AUTHENTICATE per §2.28) and says whether
+// the handshake may proceed.
+func newFakeYardGated(t *testing.T, gate func(y *fakeYard, op wire.Op, body []byte) bool, onOp func(y *fakeYard, op wire.Op, body []byte)) *fakeYard {
+	t.Helper()
+	return startFakeYard(t, &fakeYard{gate: gate}, onOp)
+}
+
+// newFakeYardTLS wraps every accepted session in a lab TLS server config.
+func newFakeYardTLS(t *testing.T, conf *tls.Config, gate func(y *fakeYard, op wire.Op, body []byte) bool, onOp func(y *fakeYard, op wire.Op, body []byte)) *fakeYard {
+	t.Helper()
+	return startFakeYard(t, &fakeYard{gate: gate, tlsConf: conf}, onOp)
+}
+
+func startFakeYard(t *testing.T, y *fakeYard, onOp func(y *fakeYard, op wire.Op, body []byte)) *fakeYard {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("fake yard: %v", err)
 	}
 	t.Cleanup(func() { ln.Close() })
-	y := &fakeYard{t: t, addr: ln.Addr().String()}
+	y.t = t
+	y.addr = ln.Addr().String()
 	go func() {
 		for {
 			conn, err := ln.Accept()
@@ -41,11 +68,27 @@ func newFakeYard(t *testing.T, onOp func(y *fakeYard, op wire.Op, body []byte)) 
 }
 
 func (y *fakeYard) serve(conn net.Conn, onOp func(y *fakeYard, op wire.Op, body []byte)) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
+	if y.tlsConf != nil {
+		tconn := tls.Server(conn, y.tlsConf)
+		if err := tconn.Handshake(); err != nil {
+			return
+		}
+		conn = tconn
+	}
 	y.wr = wire.NewWriter(conn)
 	rd := wire.NewReader(conn, wire.MaxBodyBytes)
 
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second)) // handshake budget
+	if y.gate != nil {
+		op, body, err := rd.ReadFrame()
+		if err != nil {
+			return
+		}
+		if !y.gate(y, op, body) {
+			return
+		}
+	}
 	op, _, err := rd.ReadFrame()
 	if err != nil || op != wire.OpHello {
 		return

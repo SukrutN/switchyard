@@ -13,6 +13,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"sync"
@@ -53,6 +54,12 @@ type Options struct {
 	DeliverBuf int           // delivery channel depth (default 256)
 	LaneBuf    int           // lane delivery channel depth (default 256)
 	Keepalive  time.Duration // silent-max minus; a probe PING follows (default 65s)
+	// The gate and the wrap (§2.28/§1): Token knocks before HELLO; TLS
+	// wraps the session at dial; SkipVerify accepts any certificate and
+	// is a lab switch, never an operating mode.
+	Token      string
+	TLS        bool
+	SkipVerify bool
 }
 
 func (o *Options) withDefaults() {
@@ -117,13 +124,24 @@ type Client struct {
 }
 
 // Dial connects, handshakes, and leaves the session live. The ctx deadline
-// converts into a dial deadline; the handshake adds Options.Timeout.
+// converts into a dial deadline; the wrap, the knock, and the handshake
+// all share one budget. Order is fixed by the protocol: TLS if asked, the
+// token if the yard demands one, HELLO last.
 func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 	o.withDefaults()
 	dialer := net.Dialer{Timeout: o.Timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("dial %s: %w", addr, err)
+	}
+	_ = conn.SetDeadline(time.Now().Add(o.Timeout))
+	if o.TLS {
+		wrapped, err := tlsWrap(ctx, conn, addr, o.SkipVerify)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		conn = wrapped
 	}
 	c := &Client{
 		conn:       conn,
@@ -135,7 +153,10 @@ func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 		keepalive:  o.Keepalive,
 		done:       make(chan struct{}),
 	}
-	_ = conn.SetDeadline(time.Now().Add(o.Timeout))
+	if err := c.knock(o); err != nil {
+		conn.Close()
+		return nil, err
+	}
 	if err := c.hello(o); err != nil {
 		conn.Close()
 		return nil, err
@@ -145,6 +166,57 @@ func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 	_ = conn.SetDeadline(time.Time{})
 	go c.readLoop()
 	return c, nil
+}
+
+// tlsWrap exchanges the socket's greeting: TLS 1.2 minimum, trust against
+// the system roots unless the lab switch dismisses it (§1). The yard's
+// canonical name is the host part of the dial string.
+func tlsWrap(ctx context.Context, plain net.Conn, addr string, skipVerify bool) (net.Conn, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	conf := &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: skipVerify, ServerName: host}
+	tconn := tls.Client(plain, conf)
+	if err := tconn.HandshakeContext(ctx); err != nil {
+		return nil, fmt.Errorf("tls handshake %s: %w", addr, err)
+	}
+	return tconn, nil
+}
+
+// knock speaks the shared token at the door (§2.28) and awaits the nod,
+// all under dial's deadline. A gate that says no ends the dial with the
+// refusal verbatim — a ClientError, so spur prints the yard's own words.
+func (c *Client) knock(o Options) error {
+	if o.Token == "" {
+		return nil
+	}
+	body, err := wire.EncodeAuthenticate(wire.Authenticate{Token: o.Token})
+	if err != nil {
+		return fmt.Errorf("knock: %w", err)
+	}
+	if err := c.wr.WriteFrame(wire.OpAuthenticate, body); err != nil {
+		return fmt.Errorf("send knock: %w", err)
+	}
+	rd := wire.NewReader(c.conn, wire.MaxBodyBytes)
+	op, reply, rerr := rd.ReadFrame()
+	if rerr != nil {
+		return fmt.Errorf("await gate: %w", rerr)
+	}
+	if op == wire.OpError {
+		e, derr := wire.DecodeError(reply)
+		if derr != nil {
+			return fmt.Errorf("gate error unreadable: %w", derr)
+		}
+		return ClientError{Code: e.Code, Message: e.Message, Fatal: e.Fatal}
+	}
+	if op != wire.OpAuthOK {
+		return fmt.Errorf("gate answered %s, AUTH_OK expected", op)
+	}
+	if _, derr := wire.DecodeAuthOK(reply); derr != nil {
+		return fmt.Errorf("auth ok unreadable: %w", derr)
+	}
+	return nil
 }
 
 func (c *Client) hello(o Options) error {
@@ -161,6 +233,11 @@ func (c *Client) hello(o Options) error {
 		return fmt.Errorf("await welcome: %w", rerr)
 	}
 	if op != wire.OpWelcome {
+		if op == wire.OpError {
+			if e, derr := wire.DecodeError(body2); derr == nil {
+				return ClientError{Code: e.Code, Message: e.Message, Fatal: e.Fatal}
+			}
+		}
 		return fmt.Errorf("peer answered %s, WELCOME expected", op)
 	}
 	w, derr := wire.DecodeWelcome(body2)
