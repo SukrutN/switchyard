@@ -43,7 +43,8 @@ usage:
   spur yard              read the yard's console: version, uptime, lanes
   spur yard lane LANE    drill into one lane: seq, consumers, positions
 
-Common flags: -addr (default 127.0.0.1:4780).
+Common flags: -addr (default 127.0.0.1:4780), -auth TOKEN (when the yard
+demands one), -tls, and -insecure (self-signed lab yards only).
 
 Subjects follow the switchyard charter: dot-separated tokens;
 '*' matches one token, '>' trails and captures the rest. Streams pick a
@@ -106,18 +107,37 @@ func run() error {
 	}
 }
 
-// newFlagset owns the common flags so every subcommand speaks the same dial.
-func newFlagset(name string) (*flag.FlagSet, *string) {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	addr := fs.String("addr", "127.0.0.1:4780", "yard to talk to")
-	return fs, addr
+// dialOpts is the common dial vocabulary: where the yard is, how to
+// knock on it, and whether the session rides TLS. Every subcommand gets
+// the same flags, so one yard needs one spelling everywhere.
+type dialOpts struct {
+	addr     *string
+	token    *string
+	tls      *bool
+	insecure *bool
 }
 
-// dial performs the handshake; the returned client must Close.
-func dial(addr string) (*client.Client, error) {
-	return client.Dial(context.Background(), addr, client.Options{
-		Name:  "spur",
-		Label: "spur-cli",
+// newFlagset owns the common flags so every subcommand speaks the same dial.
+func newFlagset(name string) (*flag.FlagSet, *dialOpts) {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	o := &dialOpts{
+		addr:     fs.String("addr", "127.0.0.1:4780", "yard to talk to"),
+		token:    fs.String("auth", "", "token if the yard demands one (§2.28)"),
+		tls:      fs.Bool("tls", false, "speak TLS to the yard (§1)"),
+		insecure: fs.Bool("insecure", false, "skip TLS certificate verification (lab toys, never production)"),
+	}
+	return fs, o
+}
+
+// dial performs the handshake — token first if one is set, wrapped in TLS
+// if asked; refusals surface as the yard's own words via ClientError.
+func dial(o *dialOpts) (*client.Client, error) {
+	return client.Dial(context.Background(), *o.addr, client.Options{
+		Name:       "spur",
+		Label:      "spur-cli",
+		Token:      *o.token,
+		TLS:        *o.tls,
+		SkipVerify: *o.insecure,
 	})
 }
 
@@ -175,6 +195,7 @@ func codeName(code byte) string {
 		wire.CodeStreamDisabled: "streams-disabled",
 		wire.CodeBadKey:         "bad-key",
 		wire.CodeServerFault:    "server-fault",
+		wire.CodeNotAllowed:     "not-allowed",
 	}[code]
 	if name == "" {
 		return fmt.Sprintf("error-0x%02X", code)
@@ -183,11 +204,11 @@ func codeName(code byte) string {
 }
 
 func cmdPing(args []string) error {
-	fs, addr := newFlagset("ping")
+	fs, cf := newFlagset("ping")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -206,7 +227,7 @@ func cmdPing(args []string) error {
 }
 
 func cmdSub(args []string) error {
-	fs, addr := newFlagset("sub")
+	fs, cf := newFlagset("sub")
 	count := fs.Int("count", 0, "deliveries to print, 0 = until Ctrl+C")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -216,7 +237,7 @@ func cmdSub(args []string) error {
 		return usageError{"sub needs at least one pattern"}
 	}
 
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -267,7 +288,7 @@ func printDelivery(d client.Delivery) {
 }
 
 func cmdPub(args []string) error {
-	fs, addr := newFlagset("pub")
+	fs, cf := newFlagset("pub")
 	reply := fs.String("reply", "", "reply subject embedded in the message")
 	nf := fs.Int("n", 1, "publish the same message n times")
 	if err := fs.Parse(args); err != nil {
@@ -283,7 +304,7 @@ func cmdPub(args []string) error {
 		payload = []byte(rest[1])
 	}
 
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -324,14 +345,14 @@ func cmdStream(args []string) error {
 }
 
 func cmdStreamCreate(args []string) error {
-	fs, addr := newFlagset("stream create")
+	fs, cf := newFlagset("stream create")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
 		return usageError{"usage: spur stream create NAME"}
 	}
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -347,14 +368,14 @@ func cmdStreamCreate(args []string) error {
 }
 
 func cmdStreamDelete(args []string) error {
-	fs, addr := newFlagset("stream delete")
+	fs, cf := newFlagset("stream delete")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
 		return usageError{"usage: spur stream delete NAME"}
 	}
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -370,7 +391,7 @@ func cmdStreamDelete(args []string) error {
 }
 
 func cmdStreamPush(args []string) error {
-	fs, addr := newFlagset("stream push")
+	fs, cf := newFlagset("stream push")
 	reply := fs.String("reply", "", "reply subject embedded in the message")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -388,7 +409,7 @@ func cmdStreamPush(args []string) error {
 		return usageError{fmt.Sprintf("subject %q's first token is %q; a lane's subject must start with the lane name %q", subject, parts[0], stream)}
 	}
 
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -405,7 +426,7 @@ func cmdStreamPush(args []string) error {
 }
 
 func cmdStreamWatch(args []string) error {
-	fs, addr := newFlagset("stream watch")
+	fs, cf := newFlagset("stream watch")
 	filter := fs.String("filter", "", "subscription pattern to narrow delivery, e.g. 'orders.paid.>'")
 	count := fs.Int("count", 0, "deliveries to print, 0 = until Ctrl+C")
 	ack := fs.Bool("ack", true, "acknowledge each delivery after printing (off = leave pending)")
@@ -417,7 +438,7 @@ func cmdStreamWatch(args []string) error {
 	}
 	stream, consumer := fs.Arg(0), fs.Arg(1)
 
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -495,7 +516,7 @@ func cmdKv(args []string) error {
 }
 
 func cmdKvSet(args []string) error {
-	fs, addr := newFlagset("kv set")
+	fs, cf := newFlagset("kv set")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -507,7 +528,7 @@ func cmdKvSet(args []string) error {
 	if fs.NArg() == 3 {
 		payload = []byte(fs.Arg(2))
 	}
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -524,7 +545,7 @@ func cmdKvSet(args []string) error {
 }
 
 func cmdKvGet(args []string) error {
-	fs, addr := newFlagset("kv get")
+	fs, cf := newFlagset("kv get")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -532,7 +553,7 @@ func cmdKvGet(args []string) error {
 		return usageError{"usage: spur kv get LANE KEY"}
 	}
 	lane, key := fs.Arg(0), fs.Arg(1)
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -560,7 +581,7 @@ func cmdKvGet(args []string) error {
 }
 
 func cmdKvDel(args []string) error {
-	fs, addr := newFlagset("kv del")
+	fs, cf := newFlagset("kv del")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -568,7 +589,7 @@ func cmdKvDel(args []string) error {
 		return usageError{"usage: spur kv del LANE KEY"}
 	}
 	lane, key := fs.Arg(0), fs.Arg(1)
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -585,7 +606,7 @@ func cmdKvDel(args []string) error {
 }
 
 func cmdKvKeys(args []string) error {
-	fs, addr := newFlagset("kv keys")
+	fs, cf := newFlagset("kv keys")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -593,7 +614,7 @@ func cmdKvKeys(args []string) error {
 		return usageError{"usage: spur kv keys LANE"}
 	}
 	lane := fs.Arg(0)
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -624,14 +645,14 @@ func cmdYard(args []string) error {
 }
 
 func cmdYardSummary(args []string) error {
-	fs, addr := newFlagset("yard")
+	fs, cf := newFlagset("yard")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
 		return usageError{"usage: spur yard  (drill down with: spur yard lane LANE)"}
 	}
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
@@ -648,7 +669,7 @@ func cmdYardSummary(args []string) error {
 }
 
 func cmdYardLane(args []string) error {
-	fs, addr := newFlagset("yard lane")
+	fs, cf := newFlagset("yard lane")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -656,7 +677,7 @@ func cmdYardLane(args []string) error {
 		return usageError{"usage: spur yard lane LANE"}
 	}
 	lane := fs.Arg(0)
-	c, err := dial(*addr)
+	c, err := dial(cf)
 	if err != nil {
 		return err
 	}
