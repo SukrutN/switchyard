@@ -41,6 +41,54 @@ lever.
   summary; `spur yard lane LANE` drills down; quarantined lanes and
   parked consumers read plainly from a terminal.
 
+## [0.5.0] — 2026-09-27
+
+Milestone M4, first half — the gate and the wrap: one shared token at
+the door (§2.28–§2.29) and TLS under every session (§1). The yard,
+company-usable.
+
+### Added
+- The auth pair on the wire (§2.28, ops 0x1F/0x20): `AUTHENTICATE` is
+  one 1..256-byte token spoken before HELLO; the yard answers `AUTH_OK`
+  (an empty nod) or closes the connection with the new fatal code
+  `NOT_ALLOWED` (0x14). The comparison runs in constant time
+  (`crypto/subtle`) — a wrong token's refusal is no faster than a right
+  token's welcome. Identity belongs to the door: a knock after the
+  handshake is fatal; so is a HELLO reaching a tokened yard without a
+  knock. PING and BYE stay open — they carry no state, and a load
+  balancer deserves a liveness answer.
+- Yard refusals say which: "the yard is tokened; send Authenticate
+  first", "that token did not open the gate". No second guess on the
+  same socket — reconnect and try again.
+- A tokenless yard accepts any well-formed knock with `AUTH_OK`: nothing
+  to protect, nothing to check, and the boot log says `auth=off`. A
+  tokened yard on a plaintext line is a password read in a hallway —
+  compose them.
+- TLS transport (§1): a yard booted with both `-cert` and `-key` wraps
+  every session in TLS 1.2-or-better on the same frames, same magic,
+  same disciplines. One half of a keypair is refused at boot, not
+  silently downgraded. The client wraps at dial (`Options.TLS`,
+  `spur -tls`); `SkipVerify` / `spur -insecure` is the lab switch for
+  self-signed certificates and is never an operating mode. Plaintext
+  dials to a TLS listener die at the wrap's first read: the wrap is the
+  whole session.
+- Dial order is now protocol, not preference: TLS if asked, the knock if
+  the yard demands one, HELLO last — and handshakes that die under the
+  gate surface as `ClientError` with the yard's own words for both the
+  Go client and `spur`.
+- `spur` grows three every-verb flags: `-auth TOKEN`, `-tls`,
+  `-insecure`; the yard grows `-auth`, `-cert`, `-key`, and its boot
+  line now says `auth=on/off tls=on/off`.
+
+### Notes
+- Token length shape is the wire's business (1..256 bytes, killed as
+  `MALFORMED` on violation); token choice, length, entropy, and
+  rotation are the operator's: use long random tokens, and prefer TLS
+  whenever the line is not yours alone.
+- The auth pair is the protocol's fourth family append (§2 preamble);
+  ops before it did not move, and an old client's HELLO at a tokened
+  yard gets the gate's refusal printed plainly rather than a hang.
+
 ## [0.1.0] — 2026-07-18
 
 Milestone M1 — pub/sub core.
