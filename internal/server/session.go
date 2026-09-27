@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"log/slog"
 	"net"
@@ -91,6 +92,7 @@ type session struct {
 	seq map[uint32]uint32
 
 	handshaked bool
+	authed     bool   // spoke an accepted AUTHENTICATE before the hello (§2.28)
 	peerName   string // HELLO name, display-only in lifecycle logs
 	peerLabel  string // HELLO label, same contract
 }
@@ -203,7 +205,8 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 	switch op {
 	case wire.OpWelcome, wire.OpDeliver, wire.OpStreamReady, wire.OpStreamReceipt,
 		wire.OpConsumerReady, wire.OpStreamDeliver, wire.OpStreamGone,
-		wire.OpKVValue, wire.OpKVKeyList, wire.OpYardState, wire.OpLaneState:
+		wire.OpKVValue, wire.OpKVKeyList, wire.OpYardState, wire.OpLaneState,
+		wire.OpAuthOK:
 		return s.kill("received reserved server op "+op.String(), wire.CodeMalformed)
 	}
 
@@ -211,6 +214,9 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 	case wire.OpHello:
 		if s.handshaked {
 			return s.pushErr("hello sent twice; session already live", wire.CodeNotHandshaked)
+		}
+		if s.hub.token != "" && !s.authed {
+			return s.kill("the yard is tokened; send Authenticate first (§2.28)", wire.CodeNotAllowed)
 		}
 		h, err := wire.DecodeHello(body)
 		if err != nil {
@@ -224,6 +230,29 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 		}
 		s.pushCtl(wire.OpWelcome, w, false)
 		s.log.Info("client in", "session", s.id, "name", h.Name, "label", h.Label)
+		return nil
+
+	case wire.OpAuthenticate:
+		// The gate lives at the door: post-handshake attempts die with
+		// NOT_ALLOWED, and a wrong token dies too — no rewrites, no retries
+		// on the same socket (§2.28).
+		if s.handshaked {
+			return s.kill("authenticate after hello; identity belongs to the door (§2.28)", wire.CodeNotAllowed)
+		}
+		a, err := wire.DecodeAuthenticate(body)
+		if err != nil {
+			return s.kill("auth body unreadable: "+err.Error(), wire.CodeMalformed)
+		}
+		if s.hub.token != "" && subtle.ConstantTimeCompare([]byte(s.hub.token), []byte(a.Token)) != 1 {
+			return s.kill("that token did not open the gate", wire.CodeNotAllowed)
+		}
+		s.authed = true
+		nb, encErr := wire.EncodeAuthOK(wire.AuthOK{})
+		if encErr != nil {
+			return fmt.Errorf("encode auth ok: %w", encErr)
+		}
+		s.pushCtl(wire.OpAuthOK, nb, false)
+		s.log.Debug("gate opened", "session", s.id)
 		return nil
 
 	case wire.OpPing:
