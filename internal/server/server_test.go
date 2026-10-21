@@ -150,6 +150,46 @@ func (rw *raw) expectError(t *testing.T, wantCode byte, within time.Duration) {
 
 // ---- ----
 
+// settle proves a subscription registered before cross-session traffic:
+// v1 has no SUBSCRIBE ack, so a publish from a DIFFERENT connection can
+// legally beat a fresh subscribe under heavy scheduling. Publishing a
+// probe subject the subscription must catch, until it returns, removes
+// that window; drainQuiet then empties any rest-of-loop residue.
+func settle(t *testing.T, publisher *client.Client, subject string, subscriber *client.Client, wantSid uint32) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if time.Now().After(deadline) {
+			t.Fatalf("subscription never settled on %s", subject)
+		}
+		_ = publisher.Publish(subject, []byte("settle"))
+		select {
+		case d := <-subscriber.Deliveries():
+			if d.Sid == wantSid {
+				return
+			}
+			t.Fatalf("settle probe hit sid %d (%s), want %d", d.Sid, d.Subject, wantSid)
+		case e := <-subscriber.Errors():
+			t.Fatalf("refusal while settling: %v", e)
+		case <-time.After(150 * time.Millisecond):
+		}
+	}
+}
+
+func drainQuiet(t *testing.T, c *client.Client, quiet time.Duration) {
+	t.Helper()
+	for {
+		select {
+		case d := <-c.Deliveries():
+			_ = d
+		case e := <-c.Errors():
+			t.Fatalf("unexpected error while draining: %v", e)
+		case <-time.After(quiet):
+			return
+		}
+	}
+}
+
 func mustDelivery(t *testing.T, c *client.Client, within time.Duration) client.Delivery {
 	t.Helper()
 	select {
@@ -195,25 +235,12 @@ func TestPubSubLifecycle(t *testing.T) {
 
 	pub := dialClient(t, srv.Addr())
 
-	// No subscribe-ack exists in v1; arrivals are the proof. A beat under
-	// sid1's pattern settles the subscriptions.
-	deadline := time.Now().Add(3 * time.Second)
-	beats := 0
-	for beats < 1 {
-		if time.Now().After(deadline) {
-			t.Logf("subscriptions slow to register; saw %d beat(s), err: %v", beats, drainErrNow(subs))
-			t.Fatalf("subscriptions did not register")
-		}
-		_ = pub.Publish("orders.beat", []byte("alive"))
-		select {
-		case d := <-subs.Deliveries():
-			if d.Sid != 1 || d.Subject != "orders.beat" {
-				t.Fatalf("watched sid %d got %s", d.Sid, d.Subject)
-			}
-			beats++
-		case <-time.After(200 * time.Millisecond):
-		}
-	}
+	// Settle both subscriptions through the one ordering guarantee v1 has:
+	// a publish whose delivery returns proves everything enqueued to the
+	// hub before it is live. sid1's pattern matches the beat subject; once
+	// that returns, sid2 (sent first, same session) is registered too.
+	settle(t, pub, "orders.beat", subs, 1)
+	drainQuiet(t, subs, 150*time.Millisecond)
 
 	// Burst ordering + gapless seq on a FRESH sid (sid2) so its counter
 	// starts at 1 — per-subscription wording of the charter.
@@ -272,15 +299,6 @@ func TestPubSubLifecycle(t *testing.T) {
 	}
 }
 
-func drainErrNow(c *client.Client) string {
-	select {
-	case e := <-c.Errors():
-		return e.Error()
-	default:
-		return ""
-	}
-}
-
 func TestCharterRefusalsReachClients(t *testing.T) {
 	srv, _ := newTestServer(t, nil)
 	c := dialClient(t, srv.Addr())
@@ -308,6 +326,7 @@ func TestCharterRefusalsReachClients(t *testing.T) {
 	if err := c2.Subscribe(1, "probe.>"); err != nil {
 		t.Fatal(err)
 	}
+	settle(t, c, "probe.settle", c2, 1)
 	if err := c.Publish("probe.now", []byte("still-breathing")); err != nil {
 		t.Fatal(err)
 	}
@@ -401,6 +420,10 @@ func TestOversizeBodySkips(t *testing.T) {
 	}
 	pub := dialClient(t, srv.Addr())
 
+	// Cross-session publish needs the subscription settled first (no-ack).
+	settle(t, pub, "cap.settle", watcher, 1)
+	drainQuiet(t, watcher, 150*time.Millisecond)
+
 	if err := pub.Publish("cap.big", make([]byte, 4000)); err != nil {
 		t.Fatalf("publish 4000B: %v", err)
 	}
@@ -433,6 +456,32 @@ func TestSlowConsumerKilled(t *testing.T) {
 	rw.send(t, wire.OpSubscribe, sb)
 
 	pub := dialClient(t, srv.Addr())
+
+	// Settle the raw subscription: a small probe must come back as DELIVER
+	// before the burst starts. A publish from a different session can
+	// legally beat a fresh subscribe (v1 has no ack), so retry until the
+	// probe returns instead of assuming ordering.
+	settled := false
+	settleDeadline := time.Now().Add(3 * time.Second)
+	for !settled {
+		if time.Now().After(settleDeadline) {
+			t.Fatal("raw subscription never settled")
+		}
+		_ = pub.Publish("burst.settle", []byte("settle"))
+		op, body, err := rw.read(t, 1500*time.Millisecond)
+		if err != nil {
+			continue
+		}
+		if op != wire.OpDeliver {
+			t.Fatalf("settle probe: got %s", op)
+		}
+		d, derr := wire.DecodeDeliver(body)
+		if derr != nil || d.Sid != 1 || d.Subject != "burst.settle" {
+			t.Fatalf("settle probe wrong: op=%v deliver=%+v err=%v", op, d, derr)
+		}
+		settled = true
+	}
+
 	var publishWG sync.WaitGroup
 	publishWG.Add(1)
 	go func() {
