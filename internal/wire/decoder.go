@@ -36,6 +36,16 @@ func (d *decoder) u32() (uint32, error) {
 	return v, nil
 }
 
+// u16 reads a big-endian uint16 (count fields, capped lengths).
+func (d *decoder) u16() (uint16, error) {
+	if d.left() < 2 {
+		return 0, newOpErr(CodeMalformed, false, "expected u16 at offset %d, body has %d bytes left", d.pos, d.left())
+	}
+	v := binary.BigEndian.Uint16(d.buf[d.pos : d.pos+2])
+	d.pos += 2
+	return v, nil
+}
+
 // u64 reads a big-endian uint64 (lane sequences are u64 on the wire).
 func (d *decoder) u64() (uint64, error) {
 	if d.left() < 8 {

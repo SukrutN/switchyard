@@ -56,6 +56,25 @@ func validLaneName(name string) bool {
 	return true
 }
 
+// validKVKey is the §3.2 charter in one place: dots and slashes are ordinary
+// key bytes (keys are never subjects and never directories), so the class is
+// §3.1's grown by two signs and bounded by wire.MaxKeyLen.
+func validKVKey(key string) bool {
+	if len(key) == 0 || len(key) > wire.MaxKeyLen {
+		return false
+	}
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9',
+			c == '_', c == '-', c == '.', c == '/':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // laneRegistry owns every stream the yard journals. It is the only entry
 // point sessions use to touch lanes; the map lock protects names, the st.mu
 // inside each stream protects content.
@@ -126,6 +145,22 @@ func (r *laneRegistry) openLane(name string) (*stream, error) {
 		log:     r.log,
 	}
 	st.consumers = make(map[string]*consumer)
+	st.kvi = make(map[string]kvEntry)
+	// The KV index is a boot-time replay of the journal's KV rows: whatever
+	// the last set said for each key, minus every tombstone after it, is the
+	// bucket. Live writes under st.mu keep it current from here on.
+	if err := j.forEachRecord(func(seq uint64, rec journalRecord) bool {
+		switch rec.Kind {
+		case KindKVSet:
+			st.kvi[rec.Key] = kvEntry{seq: seq, val: rec.Payload}
+		case KindKVDelete:
+			delete(st.kvi, rec.Key)
+		}
+		return false
+	}); err != nil {
+		j.close()
+		return nil, err
+	}
 	cDir := filepath.Join(dir, "consumers")
 	if cEntries, cerr := os.ReadDir(cDir); cerr == nil {
 		for _, ce := range cEntries {
@@ -224,6 +259,7 @@ type stream struct {
 	seq         uint64 // highest seq the journal DOES have; next assignment is seq+1
 	quarantined bool
 	consumers   map[string]*consumer
+	kvi         map[string]kvEntry // live keys; the journal's KV rows are the truth, this is the index
 
 	syncOne bool
 	log     *slog.Logger
@@ -247,7 +283,7 @@ func (st *stream) publishAndFanOut(sub subjects.Subject, payload []byte, reply s
 		return 0, wire.CodeServerFault, errors.New("this lane's writes already failed once; storing further messages would lie about durability")
 	}
 	seq := st.seq + 1
-	rec := journalRecord{Subject: strings.Join(sub.Tokens, "."), Reply: reply, Payload: payload, HasReply: hasReply}
+	rec := journalRecord{Kind: KindStreamMessage, Subject: strings.Join(sub.Tokens, "."), Reply: reply, Payload: payload, HasReply: hasReply}
 	if err := st.j.appendOne(rec, seq, st.syncOne); err != nil {
 		st.quarantined = true // a lane whose bytes are not trusted stops pretending
 		return 0, wire.CodeServerFault, fmt.Errorf("journal write for lane %q: %w", st.name, err)
@@ -255,6 +291,80 @@ func (st *stream) publishAndFanOut(sub subjects.Subject, payload []byte, reply s
 	st.seq = seq
 	st.fanOutLocked(seq, sub, rec)
 	return seq, 0, nil
+}
+
+// kvEntry is one live key in the lane's in-memory index. val is a private
+// copy: the session bytes die with their buffer, the key outlives them.
+type kvEntry struct {
+	seq uint64
+	val []byte
+}
+
+// kvSet journals a key-value pair under the lane's own sequence law, then
+// mirrors it into the index. Receipt discipline is the same as publish:
+// fsync first, the answer can only mean "the bytes are on disk". No fan-out:
+// KV rows are journal rows of their own kind, and consumers attached to the
+// lane never see them (§2.18).
+func (st *stream) kvSet(key string, payload []byte) (uint64, byte, error) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.quarantined {
+		return 0, wire.CodeServerFault, errors.New("this lane's writes already failed once; storing further messages would lie about durability")
+	}
+	seq := st.seq + 1
+	rec := journalRecord{Kind: KindKVSet, Key: key, Payload: payload}
+	if err := st.j.appendOne(rec, seq, st.syncOne); err != nil {
+		st.quarantined = true // a lane whose bytes are not trusted stops pretending
+		return 0, wire.CodeServerFault, fmt.Errorf("journal write for lane %q: %w", st.name, err)
+	}
+	st.seq = seq
+	st.kvi[key] = kvEntry{seq: seq, val: payload}
+	return seq, 0, nil
+}
+
+// kvDelete journals the tombstone whether or not the key exists — deletes
+// are facts worth journaling even when a key did not (§2.20) — and drops it
+// from the index. The receipt names the tombstone's own sequence.
+func (st *stream) kvDelete(key string) (uint64, byte, error) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.quarantined {
+		return 0, wire.CodeServerFault, errors.New("this lane's writes already failed once; storing further messages would lie about durability")
+	}
+	seq := st.seq + 1
+	rec := journalRecord{Kind: KindKVDelete, Key: key}
+	if err := st.j.appendOne(rec, seq, st.syncOne); err != nil {
+		st.quarantined = true
+		return 0, wire.CodeServerFault, fmt.Errorf("journal write for lane %q: %w", st.name, err)
+	}
+	st.seq = seq
+	delete(st.kvi, key)
+	return seq, 0, nil
+}
+
+// kvGet reads one live key from the index. A miss — never set, or the tomb-
+// stone won — answers found=false: an answer, not an error (§2.19).
+func (st *stream) kvGet(key string) (uint64, []byte, bool) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	e, ok := st.kvi[key]
+	if !ok {
+		return 0, nil, false
+	}
+	return e.seq, e.val, true
+}
+
+// kvKeys lists the index's live keys, ascending bytewise: one lane, one
+// order, every caller (§2.23).
+func (st *stream) kvKeys() []string {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	keys := make([]string, 0, len(st.kvi))
+	for key := range st.kvi {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // fanOutLocked hands seq to every attached consumer whose filter catches the
@@ -376,6 +486,9 @@ func (st *stream) replayWindowLocked(c *consumer) error {
 	err := st.j.forEachRecord(func(seqNo uint64, rec journalRecord) bool {
 		if seqNo < start || seqNo > st.seq {
 			return false
+		}
+		if rec.Kind != KindStreamMessage {
+			return false // KV rows and strangers journal here; they never deliver
 		}
 		if _, is := c.pending[seqNo]; !is {
 			// Not owed before, not filtered out: only deliver it if the
@@ -557,6 +670,9 @@ func (st *stream) sweepOnce(c *consumer) {
 	}
 	s := c.sess
 	st.j.forEachRecord(func(seqNo uint64, rec journalRecord) bool {
+		if rec.Kind != KindStreamMessage {
+			return false // the ledger only ever held stream rows; keep it that way
+		}
 		if !replaySet[seqNo] {
 			return false
 		}

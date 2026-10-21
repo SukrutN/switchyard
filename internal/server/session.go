@@ -202,7 +202,8 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 	// dialect; better to stop than to guess.
 	switch op {
 	case wire.OpWelcome, wire.OpDeliver, wire.OpStreamReady, wire.OpStreamReceipt,
-		wire.OpConsumerReady, wire.OpStreamDeliver, wire.OpStreamGone:
+		wire.OpConsumerReady, wire.OpStreamDeliver, wire.OpStreamGone,
+		wire.OpKVValue, wire.OpKVKeyList:
 		return s.kill("received reserved server op "+op.String(), wire.CodeMalformed)
 	}
 
@@ -482,6 +483,136 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 		s.log.Info("stream deleted", "session", s.id, "lane", dlt.Name)
 		return nil
 
+	case wire.OpKVSet:
+		if !s.handshaked {
+			return s.pushErr("kv set before hello", wire.CodeNotHandshaked)
+		}
+		p, err := wire.DecodeKVSet(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "kv set body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		if !validKVKey(p.Key) {
+			return s.pushErr("kv set refused: key is off the §3.2 charter", wire.CodeBadKey)
+		}
+		if !s.hub.lanes.enabled() {
+			return s.pushErr("kv set refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+		}
+		st := s.hub.lanes.resolve(p.Lane)
+		if st == nil {
+			return s.pushErr("kv set refused: no lane named "+p.Lane, wire.CodeStreamUnknown)
+		}
+		payload := append([]byte(nil), p.Payload...) // one copy per record, the index outlives the buffer
+		seq, code, serr := st.kvSet(p.Key, payload)
+		if serr != nil {
+			return s.pushErr("kv set refused: "+serr.Error(), code)
+		}
+		rbody, rerr := wire.EncodeStreamReceipt(wire.StreamReceipt{Stream: p.Lane, Seq: seq})
+		if rerr != nil {
+			return fmt.Errorf("encode kv set receipt: %w", rerr)
+		}
+		s.pushCtl(wire.OpStreamReceipt, rbody, false)
+		s.log.Info("kv set", "session", s.id, "lane", p.Lane, "key", p.Key, "seq", seq)
+		return nil
+
+	case wire.OpKVGet:
+		if !s.handshaked {
+			return s.pushErr("kv get before hello", wire.CodeNotHandshaked)
+		}
+		p, err := wire.DecodeKVGet(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "kv get body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		if !validKVKey(p.Key) {
+			return s.pushErr("kv get refused: key is off the §3.2 charter", wire.CodeBadKey)
+		}
+		if !s.hub.lanes.enabled() {
+			return s.pushErr("kv get refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+		}
+		st := s.hub.lanes.resolve(p.Lane)
+		if st == nil {
+			return s.pushErr("kv get refused: no lane named "+p.Lane, wire.CodeStreamUnknown)
+		}
+		v := wire.KVValue{Lane: p.Lane, Key: p.Key}
+		if seq, val, found := st.kvGet(p.Key); found {
+			v.Seq, v.Found, v.Payload = seq, true, val
+		}
+		vb, verr := wire.EncodeKVValue(v)
+		if verr != nil {
+			return fmt.Errorf("encode kv value: %w", verr)
+		}
+		s.pushCtl(wire.OpKVValue, vb, false)
+		s.log.Debug("kv get", "session", s.id, "lane", p.Lane, "key", p.Key, "found", v.Found)
+		return nil
+
+	case wire.OpKVDelete:
+		if !s.handshaked {
+			return s.pushErr("kv delete before hello", wire.CodeNotHandshaked)
+		}
+		p, err := wire.DecodeKVDelete(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "kv delete body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		if !validKVKey(p.Key) {
+			return s.pushErr("kv delete refused: key is off the §3.2 charter", wire.CodeBadKey)
+		}
+		if !s.hub.lanes.enabled() {
+			return s.pushErr("kv delete refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+		}
+		st := s.hub.lanes.resolve(p.Lane)
+		if st == nil {
+			return s.pushErr("kv delete refused: no lane named "+p.Lane, wire.CodeStreamUnknown)
+		}
+		seq, code, serr := st.kvDelete(p.Key)
+		if serr != nil {
+			return s.pushErr("kv delete refused: "+serr.Error(), code)
+		}
+		rbody, rerr := wire.EncodeStreamReceipt(wire.StreamReceipt{Stream: p.Lane, Seq: seq})
+		if rerr != nil {
+			return fmt.Errorf("encode kv delete receipt: %w", rerr)
+		}
+		s.pushCtl(wire.OpStreamReceipt, rbody, false)
+		s.log.Info("kv delete", "session", s.id, "lane", p.Lane, "key", p.Key, "seq", seq)
+		return nil
+
+	case wire.OpKVKeys:
+		if !s.handshaked {
+			return s.pushErr("kv keys before hello", wire.CodeNotHandshaked)
+		}
+		p, err := wire.DecodeKVKeys(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "kv keys body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		if !s.hub.lanes.enabled() {
+			return s.pushErr("kv keys refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+		}
+		st := s.hub.lanes.resolve(p.Lane)
+		if st == nil {
+			return s.pushErr("kv keys refused: no lane named "+p.Lane, wire.CodeStreamUnknown)
+		}
+		kb, kerr := wire.EncodeKVKeyList(wire.KVKeyList{Lane: p.Lane, Keys: st.kvKeys()})
+		if kerr != nil {
+			return fmt.Errorf("encode kv keylist: %w", kerr)
+		}
+		s.pushCtl(wire.OpKVKeyList, kb, false)
+		s.log.Debug("kv keys", "session", s.id, "lane", p.Lane)
+		return nil
+
 	default:
 		return s.kill("unknown op "+op.String(), wire.CodeUnknownOp)
 	}
@@ -502,6 +633,8 @@ func streamRefusal(err error, prefix string) (byte, string) {
 		return wire.CodeBadSubject, "lane body refused: " + oe.Msg
 	case wire.CodeTooLarge:
 		return wire.CodeTooLarge, "lane body refused: " + oe.Msg
+	case wire.CodeBadKey:
+		return wire.CodeBadKey, "kv key refused: " + oe.Msg
 	default:
 		return wire.CodeBadStreamName, "lane name refused: " + oe.Msg
 	}

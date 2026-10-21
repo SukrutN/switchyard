@@ -35,6 +35,10 @@ usage:
   spur stream delete    [-addr host:port] NAME
   spur stream push      [-addr host:port] STREAM SUBJECT [PAYLOAD]
   spur stream watch     [-addr host:port] [-filter PATTERN] [-ack=true/false] STREAM CONSUMER
+  spur kv set   [-addr host:port] LANE KEY [PAYLOAD]
+  spur kv get   [-addr host:port] LANE KEY
+  spur kv del   [-addr host:port] LANE KEY
+  spur kv keys  [-addr host:port] LANE
 
 Common flags: -addr (default 127.0.0.1:4780).
 
@@ -87,6 +91,8 @@ func run() error {
 		return cmdPub(args)
 	case "stream":
 		return cmdStream(args)
+	case "kv":
+		return cmdKv(args)
 	case "-h", "help", "--help":
 		fmt.Println(usage)
 		return nil
@@ -162,6 +168,7 @@ func codeName(code byte) string {
 		wire.CodeDupConsumer:    "duplicate-consumer",
 		wire.CodeNoConsumer:     "no-such-consumer",
 		wire.CodeStreamDisabled: "streams-disabled",
+		wire.CodeBadKey:         "bad-key",
 		wire.CodeServerFault:    "server-fault",
 	}[code]
 	if name == "" {
@@ -459,4 +466,142 @@ func printLaneDelivery(stream string, d client.LaneDelivery) {
 		return
 	}
 	fmt.Printf("[lane %s #%d] %s %s\n", stream, d.Seq, d.Subject, show)
+}
+
+// ---- kv: the same lanes, one key at a time ----
+
+func cmdKv(args []string) error {
+	if len(args) < 1 {
+		return usageError{"kv needs a subcommand: set, get, del, keys"}
+	}
+	sub, rest := args[0], args[1:]
+	switch sub {
+	case "set":
+		return cmdKvSet(rest)
+	case "get":
+		return cmdKvGet(rest)
+	case "del", "delete":
+		return cmdKvDel(rest)
+	case "keys", "list":
+		return cmdKvKeys(rest)
+	default:
+		return fmt.Errorf("unknown kv subcommand %q", sub)
+	}
+}
+
+func cmdKvSet(args []string) error {
+	fs, addr := newFlagset("kv set")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 2 && fs.NArg() != 3 {
+		return usageError{"usage: spur kv set LANE KEY [PAYLOAD]"}
+	}
+	lane, key := fs.Arg(0), fs.Arg(1)
+	payload := []byte("")
+	if fs.NArg() == 3 {
+		payload = []byte(fs.Arg(2))
+	}
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	seq, err := c.KVSet(ctx, lane, key, payload)
+	if err != nil {
+		return fmt.Errorf("set %s/%s: %w", lane, key, err)
+	}
+	fmt.Printf("stored at seq %d (key %s, %d bytes in lane %s)\n", seq, key, len(payload), lane)
+	return nil
+}
+
+func cmdKvGet(args []string) error {
+	fs, addr := newFlagset("kv get")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 2 {
+		return usageError{"usage: spur kv get LANE KEY"}
+	}
+	lane, key := fs.Arg(0), fs.Arg(1)
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	v, err := c.KVGet(ctx, lane, key)
+	if err != nil {
+		return fmt.Errorf("get %s/%s: %w", lane, key, err)
+	}
+	if !v.Found {
+		return fmt.Errorf("key %s/%s is empty (never set, or deleted)", lane, key)
+	}
+	if len(v.Payload) == 0 {
+		fmt.Fprintf(os.Stderr, "spur: value is empty; the key exists, written at seq %d\n", v.Seq)
+		return nil
+	}
+	if n := len(v.Payload); n > 300 {
+		v.Payload = v.Payload[:300] // display cap only; nothing edits the bytes
+		fmt.Fprintf(os.Stderr, "spur: displaying first 300 of %d bytes (written at seq %d)\n", n, v.Seq)
+	}
+	fmt.Println(string(v.Payload))
+	return nil
+}
+
+func cmdKvDel(args []string) error {
+	fs, addr := newFlagset("kv del")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 2 {
+		return usageError{"usage: spur kv del LANE KEY"}
+	}
+	lane, key := fs.Arg(0), fs.Arg(1)
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	seq, err := c.KVDelete(ctx, lane, key)
+	if err != nil {
+		return fmt.Errorf("del %s/%s: %w", lane, key, err)
+	}
+	fmt.Printf("tombstone at seq %d (key %s - writes replay, this delete does too)\n", seq, key)
+	return nil
+}
+
+func cmdKvKeys(args []string) error {
+	fs, addr := newFlagset("kv keys")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return usageError{"usage: spur kv keys LANE"}
+	}
+	lane := fs.Arg(0)
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	keys, err := c.KVKeys(ctx, lane)
+	if err != nil {
+		return fmt.Errorf("keys %s: %w", lane, err)
+	}
+	for _, key := range keys {
+		fmt.Println(key)
+	}
+	return nil
 }

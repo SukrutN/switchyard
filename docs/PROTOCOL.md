@@ -9,8 +9,9 @@ Conventions: sentences are normative. Numbers are bus-stable: renumbering
 an op or an error code is a new protocol version, not a patch. The op
 table grows by appending: a new op family gets fresh numbers and never
 re-means an old one — the durable stream family (§2.8–§2.17) was the
-first append, and older clients keep working because their ops did not
-move and unknown inbound ops have always been fatal.
+first append, and the KV family (§2.18–§2.23) is the second — and older
+clients keep working because their ops did not move and unknown inbound
+ops have always been fatal.
 
 ## §1 Frame layout
 
@@ -63,10 +64,17 @@ Rules:
 |0x12 | ACK             | client→server | §2.15 |
 |0x13 | STREAM_DELETE   | client→server | §2.16 |
 |0x14 | STREAM_GONE     | server→client | §2.17 |
+|0x15 | KV_SET          | client→server | §2.18 |
+|0x16 | KV_GET          | client→server | §2.19 |
+|0x17 | KV_DELETE       | client→server | §2.20 |
+|0x18 | KV_KEYS         | client→server | §2.21 |
+|0x19 | KV_VALUE        | server→client | §2.22 |
+|0x1A | KV_KEYLIST      | server→client | §2.23 |
 
 Any other op code is fatal (`UNKNOWN_OP`). A client sending WELCOME, DELIVER,
-STREAM_READY, STREAM_RECEIPT, CONSUMER_READY, STREAM_DELIVER, or STREAM_GONE
-is fatal (`MALFORMED`) — those numbers are reserved for server speech.
+STREAM_READY, STREAM_RECEIPT, CONSUMER_READY, STREAM_DELIVER, STREAM_GONE,
+KV_VALUE, or KV_KEYLIST is fatal (`MALFORMED`) — those numbers are reserved
+for server speech.
 
 ### §2.1 HELLO
 
@@ -338,6 +346,102 @@ deliveries, and consumer states of a lane
 outside the journal discipline have exactly one owner: the operator
 who deleted it.
 
+### §2.18 KV_SET
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+u16  keyLen     1..128, §3.2
+u8   key[keyLen]
+u32  payloadLen 0..cap
+u8   payload[payloadLen]
+```
+
+Writes one key-value record into a lane's journal and answers with the
+same STREAM_RECEIPT a publish gets (§2.11). KV records ride the lane's
+own sequence space — a set's seq continues after the last publish's —
+and the same durability law: the write is fsynced before the receipt
+is queued. Refusals: unknown lane `STREAM_UNKNOWN` (buckets are lanes;
+a key store starts with `stream create` — the yard will not guess a
+bucket into existence), bad key `BAD_KEY` (§3.2), no data dir
+`STREAM_DISABLED`, storage fault `SERVER_FAULT`.
+
+KV records are journal rows of their own kind (§9), never stream
+messages: consumers attached to the lane see only stream publishes,
+and a key's value is read back only with KV_GET/KV_KEYS. A set under
+key K whose previous value came from an earlier set simply wins.
+
+### §2.19 KV_GET
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+u16  keyLen     1..128
+u8   key[keyLen]
+```
+
+Reads one key. The answer is KV_VALUE (§2.22); a key that was never
+set — or whose last write was a tombstone — answers with the found
+flag clear, which is an answer, not an error.
+
+### §2.20 KV_DELETE
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+u16  keyLen     1..128
+u8   key[keyLen]
+```
+
+Journals a tombstone for the key and answers with STREAM_RECEIPT whose
+`seq` is the tombstone's own. Deleting a key that is not present is
+still journaled and confirmed: the delete is idempotent, and a book
+that replays from disk sees exactly the deletes that happened.
+Afterward every KV_GET of that key answers not-found until the next
+set.
+
+### §2.21 KV_KEYS
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+```
+
+Asks for a lane's live keys. The answer is KV_KEYLIST (§2.23).
+
+### §2.22 KV_VALUE
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+u16  keyLen     1..128
+u8   key[keyLen]
+u64  seq                    the set that wrote this value (0 when not found)
+u8   flags                  bit0 FOUND
+[ u32  payloadLen
+  u8   payload[payloadLen] ]  only when FOUND
+```
+
+The KV_GET answer. FOUND means the lane's index holds a live value for
+the key, written at `seq`; a zero-length payload is a legal FOUND
+(the flags bit, not the payload length, is the truth). Not-found
+answers carry no payload section and `seq` 0. The empty payload rule
+is why the flag exists.
+
+### §2.23 KV_KEYLIST
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+u16  count      0..live keys
+( u16  keyLen
+  u8   key[keyLen] ) × count
+```
+
+The lane's live keys, ascending bytewise, in one frame. Tombstoned
+keys are not listed. Empty `count` is a legal answer for an empty
+bucket.
+
 ## §3 Subject charter
 
 A subject or pattern is dot-separated tokens under these rules:
@@ -367,6 +471,15 @@ A stream name or consumer name is 1..64 bytes of `[A-Za-z0-9_-]` — a
 subject-charter token under a stricter charset, because those names
 become directory names under the data dir. `..`, `/`, `\`, `:` and
 friends are chartered subjects; they are not chartered lanes.
+
+### §3.2 KV keys
+
+A KV key is 1..128 bytes of `[A-Za-z0-9_.-/]`. Dots and slashes are
+ordinary key bytes here — keys are never parsed as subjects (§3), and
+they live inside journal record bodies, never as directory names — so
+`cart.json`, `config/app/v2`, and `v1.2.3` are all legal, wildcard-free
+keys. The charset is the §3.1 discipline grown by one, and like every
+charter it is exact bytes: matching is case-sensitive, no folding.
 
 ## §4 Delivery guarantees
 
@@ -432,6 +545,7 @@ ends): `MALFORMED`, `UNSUPPORTED_VERSION`, `SLOW_CONSUMER`, `UNKNOWN_OP`,
 | 0x10 | NO_CONSUMER         | no     | consumer name unknown to this lane         |
 | 0x11 | STREAM_DISABLED     | no     | this yard has no data dir; no lanes        |
 | 0x12 | SERVER_FAULT        | no     | storage could not honor the op; retry |
+| 0x13 | BAD_KEY             | no     | KV key off the §3.2 charter                |
 
 ## §7 Limits and the skip rule
 
@@ -445,6 +559,7 @@ ends): `MALFORMED`, `UNSUPPORTED_VERSION`, `SLOW_CONSUMER`, `UNKNOWN_OP`,
 | client label   | 16                   |
 | server label   | 48                   |
 | stream / consumer name | 64           |
+| KV key bytes   | 128                  |
 | deliver queue (per session) | 512 messages |
 | control queue (per session) | 256 frames  |
 | consumer ack-wait default | 10 seconds |
@@ -498,10 +613,18 @@ Layout is one directory per lane, names from §3.1:
 
 Journal record framing (big-endian, the same discipline as the wire):
 32-byte file header, then records of
-`u32 bodyLen | body | u32 crc32(body)`, where body is
-`u64 seq | u8 kind | u16 subjLen|subj | flags[replyLen|reply] | u32 payloadLen|payload`.
-`kind` byte 0x01 is a stream message; later families (KV) get their own
-kinds and must not re-mean this byte space. A record's CRC covers its
+`u32 bodyLen | body | u32 crc32(body)`, where body starts with
+`u64 seq | u8 kind` and the rest depends on the kind:
+
+```
+kind 0x01 stream message: u16 subjLen|subj | flags[replyLen|reply]
+                          | u32 payloadLen|payload
+kind 0x02 KV set:         u16 keyLen|key | u32 payloadLen|payload
+kind 0x03 KV tombstone:   u16 keyLen|key
+```
+
+No kind is ever re-meant, the same rule the wire op table lives by.
+A record's CRC covers its
 body only; the length prefix plus CRC choose between "complete record"
 and "torn tail".
 

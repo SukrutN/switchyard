@@ -486,7 +486,7 @@ func TestSlowConsumerKilled(t *testing.T) {
 	publishWG.Add(1)
 	go func() {
 		defer publishWG.Done()
-		for i := 0; i < 200; i++ { // 3.2 MB into a socket nobody drains
+		for i := 0; i < 1024; i++ { // 16 MB into a socket nobody drains
 			if err := pub.Publish("burst.e9", make([]byte, 16*1024)); err != nil {
 				return
 			}
