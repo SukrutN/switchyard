@@ -1,0 +1,6 @@
+# The image needs the Go sources and this file; the site and docs stay out.
+*
+!cmd
+!internal
+!go.mod
+!Dockerfile
