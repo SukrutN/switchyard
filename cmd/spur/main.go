@@ -5,6 +5,9 @@
 //	spur ping                              is the yard alive? how fast?
 //	spur sub  'orders.*.paid' --count 3    watch a pattern
 //	spur pub  'orders.9001.paid' 'ok'      fire one message
+//	spur stream create orders              give the yard a lane to journal
+//	spur stream push  orders orders.9001.paid ok
+//	spur stream watch orders billing       replay + follow a durable consumer
 //
 // Quote subjects in shells: '*' is a glob character and shells eat it.
 package main
@@ -15,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/SukrutN/switchyard/internal/client"
@@ -27,11 +31,20 @@ usage:
   spur ping  [-addr host:port]
   spur sub   [-addr host:port] [-count N] PATTERN [PATTERN...]
   spur pub   [-addr host:port] [-reply SUBJECT] [-n N] SUBJECT [PAYLOAD]
+  spur stream create    [-addr host:port] NAME
+  spur stream delete    [-addr host:port] NAME
+  spur stream push      [-addr host:port] STREAM SUBJECT [PAYLOAD]
+  spur stream watch     [-addr host:port] [-filter PATTERN] [-ack=true/false] STREAM CONSUMER
 
 Common flags: -addr (default 127.0.0.1:4780).
 
 Subjects follow the switchyard charter: dot-separated tokens;
-'*' matches one token, '>' trails and captures the rest.
+'*' matches one token, '>' trails and captures the rest. Streams pick a
+name (letters, digits, '_', '-'); every message published to a stream
+uses a SUBJECT whose FIRST token equals the stream name. Durable
+consumers remember their position by name: call watch again and it
+picks up where it stopped, redelivering anything the last session
+never acknowledged.
 Quote patterns in your shell. sid numbers station to station.`
 
 func main() {
@@ -72,6 +85,8 @@ func run() error {
 		return cmdSub(args)
 	case "pub":
 		return cmdPub(args)
+	case "stream":
+		return cmdStream(args)
 	case "-h", "help", "--help":
 		fmt.Println(usage)
 		return nil
@@ -132,12 +147,22 @@ func toStruct(c <-chan os.Signal) <-chan struct{} {
 // codeName mirrors wire.NameFor — spur prints names, not hex, to operators.
 func codeName(code byte) string {
 	name := map[byte]string{
-		wire.CodeBadSubject:   "bad-subject",
-		wire.CodeDupSub:       "duplicate-subscription",
-		wire.CodeNoSub:        "no-such-subscription",
-		wire.CodeTooLarge:     "payload-too-large",
-		wire.CodeSlowConsumer: "slow-consumer",
-		wire.CodeIdleTimeout:  "idle-timeout",
+		wire.CodeMalformed:      "malformed-frame",
+		wire.CodeUnknownOp:      "unknown-operation",
+		wire.CodeBadSubject:     "bad-subject",
+		wire.CodeDupSub:         "duplicate-subscription",
+		wire.CodeNoSub:          "no-such-subscription",
+		wire.CodeTooLarge:       "payload-too-large",
+		wire.CodeSlowConsumer:   "slow-consumer",
+		wire.CodeIdleTimeout:    "idle-timeout",
+		wire.CodeStreamUnknown:  "stream-unknown",
+		wire.CodeStreamExists:   "stream-exists",
+		wire.CodeBadStreamName:  "bad-stream-name",
+		wire.CodeStreamSubject:  "stream-subject-mismatch",
+		wire.CodeDupConsumer:    "duplicate-consumer",
+		wire.CodeNoConsumer:     "no-such-consumer",
+		wire.CodeStreamDisabled: "streams-disabled",
+		wire.CodeServerFault:    "server-fault",
 	}[code]
 	if name == "" {
 		return fmt.Sprintf("error-0x%02X", code)
@@ -263,4 +288,175 @@ func cmdPub(args []string) error {
 		fmt.Printf("published %d× %s (%d bytes each)\n", *nf, subject, len(payload))
 	}
 	return nil
+}
+
+// ---- streams: the yard's journal, one lane at a time ----
+
+func cmdStream(args []string) error {
+	if len(args) < 1 {
+		return usageError{"stream needs a subcommand: create, delete, push, watch"}
+	}
+	sub, rest := args[0], args[1:]
+	switch sub {
+	case "create":
+		return cmdStreamCreate(rest)
+	case "delete":
+		return cmdStreamDelete(rest)
+	case "push":
+		return cmdStreamPush(rest)
+	case "watch":
+		return cmdStreamWatch(rest)
+	default:
+		return fmt.Errorf("unknown stream subcommand %q", sub)
+	}
+}
+
+func cmdStreamCreate(args []string) error {
+	fs, addr := newFlagset("stream create")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return usageError{"usage: spur stream create NAME"}
+	}
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := c.StreamCreate(ctx, fs.Arg(0)); err != nil {
+		return fmt.Errorf("create %q: %w", fs.Arg(0), err)
+	}
+	fmt.Printf("lane %s ready - records journal from seq 1\n", fs.Arg(0))
+	return nil
+}
+
+func cmdStreamDelete(args []string) error {
+	fs, addr := newFlagset("stream delete")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return usageError{"usage: spur stream delete NAME"}
+	}
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := c.StreamDelete(ctx, fs.Arg(0)); err != nil {
+		return fmt.Errorf("delete %q: %w", fs.Arg(0), err)
+	}
+	fmt.Printf("lane %s deleted - journal and consumer positions gone\n", fs.Arg(0))
+	return nil
+}
+
+func cmdStreamPush(args []string) error {
+	fs, addr := newFlagset("stream push")
+	reply := fs.String("reply", "", "reply subject embedded in the message")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	rest := fs.Args()
+	if len(rest) < 2 || len(rest) > 3 {
+		return usageError{"usage: spur stream push STREAM SUBJECT [PAYLOAD]"}
+	}
+	stream, subject := rest[0], rest[1]
+	payload := []byte("")
+	if len(rest) == 3 {
+		payload = []byte(rest[2])
+	}
+	if parts := strings.SplitN(subject, ".", 2); parts[0] != stream {
+		return usageError{fmt.Sprintf("subject %q's first token is %q; a lane's subject must start with the lane name %q", subject, parts[0], stream)}
+	}
+
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	seq, err := c.StreamPublishReply(ctx, stream, subject, *reply, payload)
+	if err != nil {
+		return fmt.Errorf("push %s: %w", subject, err)
+	}
+	fmt.Printf("stored at seq %d in lane %s (%d bytes on the journal)\n", seq, stream, len(payload))
+	return nil
+}
+
+func cmdStreamWatch(args []string) error {
+	fs, addr := newFlagset("stream watch")
+	filter := fs.String("filter", "", "subscription pattern to narrow delivery, e.g. 'orders.paid.>'")
+	count := fs.Int("count", 0, "deliveries to print, 0 = until Ctrl+C")
+	ack := fs.Bool("ack", true, "acknowledge each delivery after printing (off = leave pending)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 2 {
+		return usageError{"usage: spur stream watch [-filter PATTERN] [-count N] [-ack] STREAM CONSUMER"}
+	}
+	stream, consumer := fs.Arg(0), fs.Arg(1)
+
+	c, err := dial(*addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	next, wait, err := c.StreamAttach(ctx, stream, consumer, 1, 0, *filter)
+	if err != nil {
+		return fmt.Errorf("attach %q/%q: %w", stream, consumer, err)
+	}
+	fmt.Fprintf(os.Stderr, "spur: watching lane %s as consumer %q (next %d, ack wait %s) - Ctrl+C to stop\n",
+		stream, consumer, next, wait)
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	defer signal.Stop(sig)
+	errs := watchErrors(c, toStruct(sig))
+
+	seen := 0
+	for {
+		select {
+		case d := <-c.LaneDeliveries():
+			printLaneDelivery(stream, d)
+			if *ack {
+				if err := c.LaneAck(d.Sid, d.Seq); err != nil {
+					return fmt.Errorf("ack %d: %w", d.Seq, err)
+				}
+			}
+			seen++
+			if *count > 0 && seen >= *count {
+				fmt.Fprintf(os.Stderr, "spur: done (%d delivered)\n", seen)
+				return nil
+			}
+		case e := <-errs:
+			return e
+		case <-sig:
+			fmt.Fprintf(os.Stderr, "spur: done (%d delivered, consumer %q remembers its position)\n", seen, consumer)
+			return nil
+		}
+	}
+}
+
+func printLaneDelivery(stream string, d client.LaneDelivery) {
+	show := d.Payload
+	if len(show) > 300 {
+		show = show[:300] // display cap only; nothing edits the bytes
+	}
+	if d.HasReply {
+		fmt.Printf("[lane %s #%d] %s (reply->%s) %s\n", stream, d.Seq, d.Subject, d.Reply, show)
+		return
+	}
+	fmt.Printf("[lane %s #%d] %s %s\n", stream, d.Seq, d.Subject, show)
 }
