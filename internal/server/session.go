@@ -36,7 +36,15 @@ type deliverTask struct {
 	payload  []byte
 	reply    string
 	hasReply bool
+	kind     uint8  // taskSpur (§2.6 delivery) or taskLane (§2.14 delivery)
+	laneSeq  uint64 // the lane's sequence when kind == taskLane
 }
+
+// Delivery task kinds; the writer goroutine picks its frame op from these.
+const (
+	taskSpur uint8 = iota // ordinary pub/sub delivery, per-sid gapless seq
+	taskLane              // durable lane delivery, lane's seq passes through
+)
 
 // ctlFrame is inline traffic the reader side wants the writer to emit, so
 // every byte crossing the socket passes through the single writer goroutine.
@@ -69,6 +77,10 @@ type session struct {
 	mu   sync.Mutex
 	subs map[uint32]string // sid → pattern; one sid, exactly one subscription
 
+	// lanes holds durable-consumer references: sid → where its acks go.
+	// Same mu as subs; together they are the "one sid, one thing" registry.
+	lanes map[uint32]laneRef
+
 	// seq is writer-goroutine-private: sid → last stamped sequence.
 	seq map[uint32]uint32
 
@@ -79,17 +91,18 @@ type session struct {
 
 func newSession(id uint64, cfg *Config, hub *Hub, log *slog.Logger, conn net.Conn) *session {
 	return &session{
-		id:   id,
-		cfg:  cfg,
-		hub:  hub,
-		log:  log,
-		conn: conn,
-		rd:   wire.NewReader(conn, cfg.MaxBody),
-		wr:   wire.NewWriter(conn),
-		out:  make(chan deliverTask, cfg.OutBuf),
-		ctl:  make(chan ctlFrame, 8),
-		quit: make(chan struct{}),
-		subs: map[uint32]string{},
+		id:    id,
+		cfg:   cfg,
+		hub:   hub,
+		log:   log,
+		conn:  conn,
+		rd:    wire.NewReader(conn, cfg.MaxBody),
+		wr:    wire.NewWriter(conn),
+		out:   make(chan deliverTask, cfg.OutBuf),
+		ctl:   make(chan ctlFrame, cfg.CtlBuf),
+		quit:  make(chan struct{}),
+		subs:  map[uint32]string{},
+		lanes: map[uint32]laneRef{},
 	}
 }
 
@@ -180,7 +193,9 @@ func isTimeout(err error) bool {
 func (s *session) dispatch(op wire.Op, body []byte) error {
 	// Reserved server ops from a client mean the peer speaks a different
 	// dialect; better to stop than to guess.
-	if op == wire.OpWelcome || op == wire.OpDeliver {
+	switch op {
+	case wire.OpWelcome, wire.OpDeliver, wire.OpStreamReady, wire.OpStreamReceipt,
+		wire.OpConsumerReady, wire.OpStreamDeliver, wire.OpStreamGone:
 		return s.kill("received reserved server op "+op.String(), wire.CodeMalformed)
 	}
 
@@ -259,15 +274,216 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 		if err != nil {
 			return s.kill("unsubscribe body unreadable: "+err.Error(), wire.CodeMalformed)
 		}
+		// Which sid space is this? A lane consumer detaches from its lane;
+		// anything else went through the hub's trie.
+		if ref, ok := s.laneRefFor(u.Sid); ok {
+			st := s.hub.lanes.resolve(ref.lane)
+			if st == nil {
+				s.forgetLane(u.Sid)
+				return s.pushErr("lane consumer's lane is gone; sid free", wire.CodeNoConsumer)
+			}
+			if !st.detachConsumer(ref.consumer, s) {
+				return s.pushErr("consumer could not detach from its lane (this is a server bug)", wire.CodeNoConsumer)
+			}
+			s.forgetLane(u.Sid)
+			return nil
+		}
 		code, uerr := s.hub.unsubscribe(s, u.Sid)
 		if uerr != nil {
 			return s.pushErr("unsubscribe refused: "+uerr.Error(), code)
 		}
 		return nil
 
+	case wire.OpStreamCreate:
+		if !s.handshaked {
+			return s.pushErr("stream create before hello", wire.CodeNotHandshaked)
+		}
+		c, err := wire.DecodeStreamCreate(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "stream create body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		next, code, cerr := s.hub.lanes.create(c.Name)
+		if cerr != nil {
+			return s.pushErr("stream create refused: "+cerr.Error(), code)
+		}
+		if body, err := wire.EncodeStreamReady(wire.StreamReady{Name: c.Name, Seq: next}); err == nil {
+			s.pushCtl(wire.OpStreamReady, body, false)
+		} else {
+			return fmt.Errorf("encode stream ready: %w", err)
+		}
+		s.log.Info("stream created", "session", s.id, "lane", c.Name, "nextSeq", next)
+		return nil
+
+	case wire.OpStreamPublish:
+		if !s.handshaked {
+			return s.pushErr("stream publish before hello", wire.CodeNotHandshaked)
+		}
+		p, err := wire.DecodeStreamPublish(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "stream publish body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		pub, err := subjects.Parse(p.Subject)
+		if err != nil {
+			return s.pushErr("stream publish refused: "+err.Error(), wire.CodeBadSubject)
+		}
+		if !pub.IsConcrete() {
+			return s.pushErr("stream publish refused: wildcards are for subscriptions, not subjects", wire.CodeBadSubject)
+		}
+		if pub.Tokens[0] != p.Stream {
+			return s.pushErr("stream publish refused: subject's first token "+pub.Tokens[0]+" is not the lane "+p.Stream, wire.CodeStreamSubject)
+		}
+		st := s.hub.lanes.resolve(p.Stream)
+		if st == nil {
+			return s.pushErr("stream publish refused: no lane named "+p.Stream, wire.CodeStreamUnknown)
+		}
+		payload := append([]byte(nil), p.Payload...) // one copy per message, shareholders may not mutate
+		seq, code, perr := st.publishAndFanOut(pub, payload, p.Reply, p.HasReply)
+		if perr != nil {
+			return s.pushErr("stream publish refused: "+perr.Error(), code)
+		}
+		// THEN the spur fan-out, deliberately after the lane's own critical
+		// section: hub work never takes st.mu, so there is no way back into
+		// this lane's order from there.
+		s.hub.publish(pub, payload, p.Reply, p.HasReply)
+		rbody, rerr := wire.EncodeStreamReceipt(wire.StreamReceipt{Stream: p.Stream, Seq: seq})
+		if rerr != nil {
+			return fmt.Errorf("encode stream receipt: %w", rerr)
+		}
+		s.pushCtl(wire.OpStreamReceipt, rbody, false)
+		return nil
+
+	case wire.OpConsumerAttach:
+		if !s.handshaked {
+			return s.pushErr("consumer attach before hello", wire.CodeNotHandshaked)
+		}
+		a, err := wire.DecodeConsumerAttach(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "consumer attach body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		st := s.hub.lanes.resolve(a.Stream)
+		if st == nil {
+			return s.pushErr("consumer attach refused: no lane named "+a.Stream, wire.CodeStreamUnknown)
+		}
+		var filter *subjects.Subject
+		if a.HasFilter {
+			f, ferr := subjects.Parse(a.Filter)
+			if ferr != nil {
+				return s.pushErr("consumer attach refused: filter rejected: "+ferr.Error(), wire.CodeBadSubject)
+			}
+			filter = &f
+		}
+		ackWait := s.laneAckWait(a.AckWaitMillis)
+		next, code, cerr := st.attach(s, a.Sid, a.Consumer, filter, ackWait)
+		if cerr != nil {
+			return s.pushErr("consumer attach refused: "+cerr.Error(), code)
+		}
+		s.rememberLane(a.Sid, laneRef{lane: a.Stream, consumer: a.Consumer})
+		if body, err := wire.EncodeConsumerReady(wire.ConsumerReady{
+			Stream: a.Stream, Consumer: a.Consumer, Sid: a.Sid, Next: next,
+			AckWaitMillis: uint32(ackWait / time.Millisecond),
+		}); err == nil {
+			s.pushCtl(wire.OpConsumerReady, body, false)
+		} else {
+			return fmt.Errorf("encode consumer ready: %w", err)
+		}
+		s.log.Info("consumer attached", "session", s.id, "lane", a.Stream, "consumer", a.Consumer, "next", next)
+		return nil
+
+	case wire.OpAck:
+		if !s.handshaked {
+			return s.pushErr("ack before hello", wire.CodeNotHandshaked)
+		}
+		a, err := wire.DecodeAck(body)
+		if err != nil {
+			return s.kill("ack body unreadable: "+err.Error(), wire.CodeMalformed)
+		}
+		ref, ok := s.laneRefFor(a.Sid)
+		if !ok {
+			return s.pushErr("ack refused: no consumer for that sid", wire.CodeNoConsumer)
+		}
+		st := s.hub.lanes.resolve(ref.lane)
+		if st == nil {
+			// The lane died under an attached consumer; STREAM_GONE was the
+			// goodbye and the sid is already free — the ack has no owner.
+			s.forgetLane(a.Sid)
+			return s.pushErr("ack refused: that lane is gone; sid free", wire.CodeNoConsumer)
+		}
+		code, cerr := st.ack(ref.consumer, s, a.Seq)
+		if cerr != nil {
+			return s.pushErr("ack refused: "+cerr.Error(), code)
+		}
+		return nil
+
+	case wire.OpStreamDelete:
+		if !s.handshaked {
+			return s.pushErr("stream delete before hello", wire.CodeNotHandshaked)
+		}
+		dlt, err := wire.DecodeStreamDelete(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "stream delete body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		removed, derr := s.hub.lanes.deleteLane(dlt.Name)
+		if derr != nil {
+			return s.pushErr("stream delete refused: "+derr.Error(), wire.CodeServerFault)
+		}
+		if !removed {
+			return s.pushErr("stream delete refused: no lane named "+dlt.Name, wire.CodeStreamUnknown)
+		}
+		notifyLaneGone(s.hub, dlt.Name)
+		if body, err := wire.EncodeStreamGone(wire.StreamGone{Name: dlt.Name}); err == nil {
+			s.pushCtl(wire.OpStreamGone, body, false)
+		}
+		s.log.Info("stream deleted", "session", s.id, "lane", dlt.Name)
+		return nil
+
 	default:
 		return s.kill("unknown op "+op.String(), wire.CodeUnknownOp)
 	}
+}
+
+// streamRefusal maps a stream-codec failure to its wire answer. Codec-level
+// shape failures stay fatal (MALFORMED governance); charter-length and
+// payload-room failures are refusals that keep the session.
+func streamRefusal(err error, prefix string) (byte, string) {
+	oe, ok := err.(*wire.ProtocolError)
+	if !ok {
+		return wire.CodeMalformed, prefix + err.Error()
+	}
+	switch oe.Code {
+	case wire.CodeMalformed:
+		return wire.CodeMalformed, "lane body unreadable: " + oe.Msg
+	case wire.CodeBadSubject:
+		return wire.CodeBadSubject, "lane body refused: " + oe.Msg
+	case wire.CodeTooLarge:
+		return wire.CodeTooLarge, "lane body refused: " + oe.Msg
+	default:
+		return wire.CodeBadStreamName, "lane name refused: " + oe.Msg
+	}
+}
+
+// laneAckWait resolves the consumer's redelivery clock: what the client
+// asked for in milliseconds, or the yard default (§7) when it asked for 0.
+func (s *session) laneAckWait(millis uint32) time.Duration {
+	if millis == 0 {
+		return s.cfg.AckWait
+	}
+	return time.Duration(millis) * time.Millisecond
 }
 
 // bye handles the client's BYE: queue our own BYE as the terminal frame, so
@@ -341,14 +557,38 @@ func (s *session) forget(sid uint32) {
 	delete(s.subs, sid)
 }
 
-// sidOwner returns the pattern living at sid, or "" when none does.
+// rememberLane registers a durable consumer under an sid. Same law as subs:
+// one sid, one thing — the caller must have checked sidTaken first.
+func (s *session) rememberLane(sid uint32, ref laneRef) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lanes[sid] = ref
+}
+
+func (s *session) forgetLane(sid uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.lanes, sid)
+}
+
+// laneRefFor reports the lane consumer living at sid, or ok=false.
+func (s *session) laneRefFor(sid uint32) (laneRef, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ref, ok := s.lanes[sid]
+	return ref, ok
+}
+
+// sidOwner returns the spur pattern living at sid, or "" when none does.
+// The lane version lives in laneRefFor; callers resolve which sid space they
+// mean before asking.
 func (s *session) sidOwner(sid uint32) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.subs[sid]
 }
 
-// allSids snapshots live sids for hub teardown.
+// allSids snapshots live spur sids for hub teardown.
 func (s *session) allSids() []uint32 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -357,6 +597,37 @@ func (s *session) allSids() []uint32 {
 		out = append(out, sid)
 	}
 	return out
+}
+
+// sidTaken is the whole sid space's one-check: a spur subscription or a
+// lane consumer, never both. Called under the hub lock for SUBSCRIBE and
+// under the lane lock for ATTACH, so no two writers race past it.
+func (s *session) sidTaken(sid uint32) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, is := s.subs[sid]; is {
+		return true
+	}
+	_, is := s.lanes[sid]
+	return is
+}
+
+// detachAllLanes runs at session teardown: every lane consumer this session
+// held goes back to "not attached", position durable. Must be called before
+// hub.unregister so a last-second ack still resolves.
+func (s *session) detachAllLanes() {
+	s.mu.Lock()
+	refs := make([]laneRef, 0, len(s.lanes))
+	for sid, ref := range s.lanes {
+		refs = append(refs, ref)
+		delete(s.lanes, sid)
+	}
+	s.mu.Unlock()
+	for _, ref := range refs {
+		if st := s.hub.lanes.resolve(ref.lane); st != nil {
+			st.detachConsumer(ref.consumer, s)
+		}
+	}
 }
 
 // toView flattens live subscriptions for the operator dump.
@@ -411,6 +682,26 @@ func (s *session) writeLoop() {
 			if s.doomed.Load() {
 				continue // drain dead assignments; nothing further goes out
 			}
+			if t.kind == taskLane {
+				// Lane delivery: the seq is the LANE's, assigned at journal
+				// time and shared by every consumer; per-sid stamping does
+				// not apply and must not pretend it does.
+				body, err := wire.EncodeStreamDeliver(wire.StreamDeliver{
+					Subject: t.subject, Sid: t.sid, Seq: t.laneSeq,
+					Reply: t.reply, Payload: t.payload, HasReply: t.hasReply,
+				})
+				if err != nil {
+					s.log.Error("lane deliver encode failed", "session", s.id, "sid", t.sid, "err", err)
+					continue
+				}
+				if err := s.writeFrame(wire.OpStreamDeliver, body); err != nil {
+					s.conn.Close()
+					return
+				}
+				// Receipts told those consumers what to ack with; pongs and
+				// other control frames continue underneath on their own loop.
+				continue
+			}
 			if s.seq == nil {
 				s.seq = make(map[uint32]uint32)
 			}
@@ -449,7 +740,24 @@ func (s *session) deliver(sid uint32, subject string, payload []byte, reply stri
 	if s.dead() {
 		return false
 	}
-	t := deliverTask{sid: sid, subject: subject, payload: payload, reply: reply, hasReply: hasReply}
+	t := deliverTask{sid: sid, subject: subject, payload: payload, reply: reply, hasReply: hasReply, kind: taskSpur}
+	select {
+	case s.out <- t:
+		return true
+	default:
+		s.kill(fmt.Sprintf("deliver queue overflow (%d buffered)", s.cfg.OutBuf), wire.CodeSlowConsumer)
+		return false
+	}
+}
+
+// deliverLane is stream-only: one lane message for one consumer. Same queue,
+// same bounds, same slow-consumer law — the only difference is who calls it
+// (the lane, holding the lane lock, in strict agreement with lane seq).
+func (s *session) deliverLane(sid uint32, laneSeq uint64, subject string, payload []byte, reply string, hasReply bool) bool {
+	if s.dead() {
+		return false
+	}
+	t := deliverTask{sid: sid, subject: subject, payload: payload, reply: reply, hasReply: hasReply, kind: taskLane, laneSeq: laneSeq}
 	select {
 	case s.out <- t:
 		return true

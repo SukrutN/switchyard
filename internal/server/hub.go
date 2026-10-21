@@ -23,12 +23,16 @@ import (
 // Sid ownership: sid is client-assigned and unique per session (charter:
 // one sid is exactly one live subscription; resubscribing is UNSUB first).
 // Trie nodes therefore key entries by (session id, sid), because sid alone
-// collides across sessions.
+// collides across sessions. Lane consumers share that sid space and the law
+// extends: one sid holds at most one thing, spur or lane; session.go owns
+// the combined check (sidTaken) so the hub cannot miss a lane conflict.
 type Hub struct {
 	mu       sync.RWMutex
 	root     *node
 	sessions map[uint64]*session
 	next     uint64
+
+	lanes *laneRegistry
 }
 
 type node struct {
@@ -51,8 +55,18 @@ type entry struct {
 	sess *session
 }
 
-func newHub() *Hub {
-	return &Hub{root: &node{}, sessions: make(map[uint64]*session)}
+func newHub(lanes *laneRegistry) *Hub {
+	return &Hub{root: &node{}, sessions: make(map[uint64]*session), lanes: lanes}
+}
+
+// eachSession walks live sessions under the hub lock. Used by operator lanes
+// (stream delete) that must reach every attached session exactly once.
+func (h *Hub) eachSession(fn func(s *session)) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, s := range h.sessions {
+		fn(s)
+	}
 }
 
 // nextID mints a session id. Ids are only for identity (logs, registry keys).
@@ -108,7 +122,7 @@ func (h *Hub) subscribe(s *session, sid uint32, pattern string) (byte, error) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if s.sidOwner(sid) != "" {
+	if s.sidTaken(sid) {
 		// One sid, one subscription — whatever the pattern, a second claim is
 		// a client bug we refuse to paper over: silent double-delivery is
 		// worse than an error the client can act on.
