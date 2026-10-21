@@ -36,6 +36,16 @@ func (d *decoder) u32() (uint32, error) {
 	return v, nil
 }
 
+// u64 reads a big-endian uint64 (lane sequences are u64 on the wire).
+func (d *decoder) u64() (uint64, error) {
+	if d.left() < 8 {
+		return 0, newOpErr(CodeMalformed, false, "expected u64 at offset %d, body has %d bytes left", d.pos, d.left())
+	}
+	v := binary.BigEndian.Uint64(d.buf[d.pos : d.pos+8])
+	d.pos += 8
+	return v, nil
+}
+
 // str8 reads u8-length string, capped at max.
 func (d *decoder) str8(max int, field string) (string, error) {
 	n, err := d.u8()
