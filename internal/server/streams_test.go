@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SukrutN/switchyard/internal/client"
 	"github.com/SukrutN/switchyard/internal/wire"
 )
 
@@ -671,8 +673,14 @@ func TestLaneDeleteNotifiesAndClearsDisk(t *testing.T) {
 		t.Fatalf("delivery seq %d", d.Seq)
 	}
 
-	// A different session deletes the lane out from under the consumer.
+	// A different session — one that ALSO holds a consumer on this lane —
+	// deletes it. Every session gets exactly one goodbye, the deleter's
+	// own confirm included; no double-frames for the double attachment.
 	c2 := laneConn(t, srv)
+	laneAttach(t, c2, "orders", "audit", 9, 60000, "")
+	if d := laneWaitDeliver(t, c2, 2*time.Second); d.Seq != 1 {
+		t.Fatalf("deleter-side delivery seq %d", d.Seq)
+	}
 	db, _ := wire.EncodeStreamDelete(wire.StreamDelete{Name: "orders"})
 	c2.send(t, wire.OpStreamDelete, db)
 	op, body := laneReadFrame(t, c2, 2*time.Second)
@@ -682,11 +690,13 @@ func TestLaneDeleteNotifiesAndClearsDisk(t *testing.T) {
 	if _, derr := wire.DecodeStreamGone(body); derr != nil {
 		t.Fatalf("gone decode: %v", derr)
 	}
+	laneSilence(t, c2, 150*time.Millisecond) // and never a second goodbye
 	// The attached consumer hears the same goodbye.
 	op1, _ := laneReadFrame(t, c1, 2*time.Second)
 	if op1 != wire.OpStreamGone {
 		t.Fatalf("consumer: got %s, want STREAM_GONE", op1)
 	}
+	laneSilence(t, c1, 150*time.Millisecond)
 
 	// Disk is cleared.
 	if _, err := os.Stat(filepath.Join(dir, "streams", "orders")); !errors.Is(err, os.ErrNotExist) {
@@ -697,6 +707,12 @@ func TestLaneDeleteNotifiesAndClearsDisk(t *testing.T) {
 	pb, _ := wire.EncodeStreamPublish(wire.StreamPublish{Stream: "orders", Subject: "orders.b", Payload: []byte("x")})
 	c1.send(t, wire.OpStreamPublish, pb)
 	laneExpectError(t, c1, wire.CodeStreamUnknown, 2*time.Second)
+
+	// Both sids are free immediately: a new lane admits both consumers.
+	laneCreate(t, c1, "east")
+	laneCreate(t, c2, "west")
+	laneAttach(t, c1, "east", "billing", 7, 60000, "")
+	laneAttach(t, c2, "west", "audit", 9, 60000, "")
 }
 
 func TestLaneFilterNarrowsDelivery(t *testing.T) {
@@ -734,4 +750,95 @@ func TestLaneFilterNarrowsDelivery(t *testing.T) {
 		t.Fatalf("re-attach next = %d, want 4 (floor skipped filtered seq 2)", r.Next)
 	}
 	laneSilence(t, c2, 250*time.Millisecond)
+}
+
+// TestLaneEndToEndThroughClientLib binds the whole story together: the
+// reference client library against the real engine. Every helper above
+// stays raw-wire; this one proves the shipped API reads the same protocol
+// without a hand-written byte test needed again.
+func TestLaneEndToEndThroughClientLib(t *testing.T) {
+	srv, _, _ := laneServer(t)
+	c, err := client.Dial(context.Background(), srv.Addr(), client.Options{Name: "lib", Label: "test"})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() { c.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := c.StreamCreate(ctx, "orders"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	seq, err := c.StreamPublish(ctx, "orders", "orders.a", []byte("m1"))
+	if err != nil || seq != 1 {
+		t.Fatalf("publish 1: seq %d err %v", seq, err)
+	}
+	if seq, err = c.StreamPublish(ctx, "orders", "orders.b", []byte("m2")); err != nil || seq != 2 {
+		t.Fatalf("publish 2: seq %d err %v", seq, err)
+	}
+
+	next, wait, err := c.StreamAttach(ctx, "orders", "billing", 7, 0, "")
+	if err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+	if next != 1 || wait != 10*time.Second {
+		t.Fatalf("attach (next=%d wait=%s), want next=1 wait=10s (the yard default)", next, wait)
+	}
+	for i, want := range []uint64{1, 2} {
+		select {
+		case d := <-c.LaneDeliveries():
+			if d.Seq != want {
+				t.Fatalf("replay %d: seq %d", i, d.Seq)
+			}
+			if err := c.LaneAck(7, d.Seq); err != nil {
+				t.Fatalf("ack %d: %v", d.Seq, err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("replay %d never arrived", i)
+		}
+	}
+	if dropped := c.LaneDropped(); dropped != 0 {
+		t.Fatalf("dropped = %d on an idle consumer", dropped)
+	}
+
+	// A publish after attach goes straight to the live consumer.
+	if seq, err = c.StreamPublish(ctx, "orders", "orders.c", []byte("m3")); err != nil || seq != 3 {
+		t.Fatalf("publish 3: seq %d err %v", seq, err)
+	}
+	select {
+	case d := <-c.LaneDeliveries():
+		if d.Seq != 3 || d.Subject != "orders.c" {
+			t.Fatalf("live delivery = %+v", d)
+		}
+		if err := c.LaneAck(7, 3); err != nil {
+			t.Fatalf("ack 3: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("live lane delivery never arrived")
+	}
+
+	// A second client, no consumer, deletes the lane. The attached one
+	// hears exactly one goodbye and nothing after it.
+	c2, err := client.Dial(context.Background(), srv.Addr(), client.Options{Name: "janitor"})
+	if err != nil {
+		t.Fatalf("dial janitor: %v", err)
+	}
+	t.Cleanup(func() { c2.Close() })
+	if err := c2.StreamDelete(ctx, "orders"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	select {
+	case n := <-c.StreamNotices():
+		if n.Stream != "orders" {
+			t.Fatalf("notice = %+v, want the deleted lane", n)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("lane goodbye never surfaced on notices")
+	}
+	select {
+	case n := <-c.StreamNotices():
+		t.Fatalf("second goodbye: %+v", n)
+	case <-time.After(150 * time.Millisecond):
+	}
 }

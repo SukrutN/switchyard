@@ -472,7 +472,10 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 			}
 			return s.pushErr("stream delete refused: no lane named "+dlt.Name, wire.CodeStreamUnknown)
 		}
-		notifyLaneGone(s.hub, dlt.Name)
+		notifyLaneGone(s.hub, s, dlt.Name)
+		// This session's own goodbye is the confirm above; one GONE per
+		// session, never two, so clients can treat the frame as an event
+		// count rather than a rumor to dedupe.
 		if body, err := wire.EncodeStreamGone(wire.StreamGone{Name: dlt.Name}); err == nil {
 			s.pushCtl(wire.OpStreamGone, body, false)
 		}

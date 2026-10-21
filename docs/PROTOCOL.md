@@ -319,9 +319,11 @@ u8   name[nameLen]
 
 Deletes a lane: journal and consumer positions go with it. Attached
 sessions stop receiving; the yard answers STREAM_GONE to each of them
-and their sids are free immediately. Consumer names on a deleted lane
-are gone — "reattach and resume" returns nothing. Messages outside
-the lane's journal that were still pending delivery are gone with it.
+— exactly once per session, the deleting session's own copy included
+— and their sids are free immediately. Consumer names on a deleted
+lane are gone — "reattach and resume" returns nothing. Messages
+outside the lane's journal that were still pending delivery are gone
+with it.
 
 ### §2.17 STREAM_GONE
 
@@ -330,8 +332,9 @@ u16  nameLen   1..64
 u8   name[nameLen]
 ```
 
-Confirm of §2.16, sent to every session that held a consumer on the
-deleted lane. Receipts, deliveries, and consumer states of a lane
+Confirm of §2.16, sent exactly once to every session that held a
+consumer on the deleted lane or issued the deletion. Receipts,
+deliveries, and consumer states of a lane
 outside the journal discipline have exactly one owner: the operator
 who deleted it.
 
