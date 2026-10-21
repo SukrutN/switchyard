@@ -382,6 +382,17 @@ func (c *Client) handle(op wire.Op, body []byte) error {
 		if err != nil {
 			return fmt.Errorf("stream gone unreadable: %w", err)
 		}
+		// The echo-trap decision is taken before the RPC slot is fed.
+		// Feeding the slot first admits a wake-up between the send and
+		// the trap check: StreamDelete returns, tears the trap down in
+		// its defers, and then a preempted reader would find no trap
+		// and surface the session's own goodbye as a foreign notice —
+		// the exact double-count §2.17's one-goodbye-per-session rule
+		// exists to prevent. One turn, one route.
+		own := false
+		if _, trapped := c.deletedLanes.Load(g.Name); trapped {
+			own = true
+		}
 		if p := c.goneSet.Load(); p != nil {
 			select {
 			case *p <- struct{}{}:
@@ -391,7 +402,7 @@ func (c *Client) handle(op wire.Op, body []byte) error {
 		// A deleting session's own goodbye carries no notice: the deletion
 		// trap (armed before the request left) covers its single confirm.
 		// Other sessions, holding consumers, hear it here.
-		if _, own := c.deletedLanes.Load(g.Name); !own {
+		if !own {
 			select {
 			case c.notices <- StreamNotice{Stream: g.Name}:
 			default:
