@@ -9,9 +9,9 @@ Conventions: sentences are normative. Numbers are bus-stable: renumbering
 an op or an error code is a new protocol version, not a patch. The op
 table grows by appending: a new op family gets fresh numbers and never
 re-means an old one — the durable stream family (§2.8–§2.17) was the
-first append, and the KV family (§2.18–§2.23) is the second — and older
-clients keep working because their ops did not move and unknown inbound
-ops have always been fatal.
+first append, the KV family (§2.18–§2.23) the second, and the console
+family (§2.24–§2.27) the third — and older clients keep working because
+their ops did not move and unknown inbound ops have always been fatal.
 
 ## §1 Frame layout
 
@@ -70,10 +70,15 @@ Rules:
 |0x18 | KV_KEYS         | client→server | §2.21 |
 |0x19 | KV_VALUE        | server→client | §2.22 |
 |0x1A | KV_KEYLIST      | server→client | §2.23 |
+|0x1B | YARD_INFO       | client→server | §2.24 |
+|0x1C | YARD_STATE      | server→client | §2.25 |
+|0x1D | LANE_INFO       | client→server | §2.26 |
+|0x1E | LANE_STATE      | server→client | §2.27 |
 
 Any other op code is fatal (`UNKNOWN_OP`). A client sending WELCOME, DELIVER,
 STREAM_READY, STREAM_RECEIPT, CONSUMER_READY, STREAM_DELIVER, STREAM_GONE,
-KV_VALUE, or KV_KEYLIST is fatal (`MALFORMED`) — those numbers are reserved
+KV_VALUE, KV_KEYLIST, YARD_STATE, or LANE_STATE is fatal (`MALFORMED`) —
+those numbers are reserved
 for server speech.
 
 ### §2.1 HELLO
@@ -441,6 +446,87 @@ u16  count      0..live keys
 The lane's live keys, ascending bytewise, in one frame. Tombstoned
 keys are not listed. Empty `count` is a legal answer for an empty
 bucket.
+
+## The console family (§2.24–§2.27)
+
+The yardmaster's view: read-only ops that speak the yard's state back
+in one frame each. They ride the same frame machinery, the same
+handshake, and the same refusal discipline as every other family — a
+console is just another client, and an operator's legibility is worth
+as much as a consumer's receipts. Every snapshot is honest about being
+a snapshot: it is assembled under each lane's own lock, followed by the
+hub's, so consecutive lanes may differ by the nanoseconds between
+their reads. There is no global freeze; there is no lying either.
+
+### §2.24 YARD_INFO
+
+```
+(empty body)
+```
+
+Asks the yard for its summary. The answer is YARD_STATE (§2.25). Read
+only, allowed on any handshaked session, whether or not this yard
+journals — a memory-only yard still answers with zero lanes. The
+request's exactness is the shared rule: an empty body or nothing.
+
+### §2.25 YARD_STATE
+
+```
+u16  versionLen   server's version string, e.g. 0.4.0
+u8   version[versionLen]
+u64  uptimeSec    whole seconds since boot
+u32  sessions     open sessions at the snapshot (this one included)
+u16  laneCount
+( u16  laneLen    1..64, lanes ascending bytewise
+  u8   lane[laneLen]
+  u64  seq        last journaled sequence; 0 for a lane with no rows ) × laneCount
+u16  quarantinedCount
+( u16  laneLen
+  u8   lane[laneLen] ) × quarantinedCount
+```
+
+The lane list is every lane the journals rely on, ascending — `seq`
+includes KV rows, one sequence space per lane (§9). Quarantined lanes
+are named in full: a lane whose writes have failed once is refused
+further writes until restart (§7's durability story), and that state
+is exactly what an operator must not have to guess at. Empty
+`laneCount` is a legal answer on a memory-only yard.
+
+### §2.26 LANE_INFO
+
+```
+u16  laneLen    1..64
+u8   lane[laneLen]
+```
+
+Asks one lane for its detail. The answer is LANE_STATE (§2.27).
+Refusals: unknown lane `STREAM_UNKNOWN` (the print says the drill-down
+ought to be a `stream create` away), no data dir `STREAM_DISABLED`.
+Read only; nothing here mutates, not even a tick of redelivery state.
+
+### §2.27 LANE_STATE
+
+```
+u16  laneLen    1..64, echoed
+u8   lane[laneLen]
+u64  seq        last journaled sequence
+u8   flags      bit0 QUARANTINED
+u64  journalBytes  the journal file's size on disk
+u32  keyCount   live keys (the KV index, tombstones subtracted)
+u16  consumerCount
+( u16  nameLen
+  u8   name[nameLen]
+  u64  floor      highest sequence fully acknowledged (durable position)
+  u32  pending    delivered-but-not-acked rows right now
+  u8   flags      bit0 ATTACHED ) × consumerCount, ascending by name
+```
+
+The drill-down a yardmaster reads before acting: how far the lane has
+journaled, how much disk it claims, what its key store holds, and
+where every durable consumer stands. `floor` is the consumer's
+durable position — the number it will resume from — and `pending`
+counts the rows it owes acks for; a detached consumer stays in the
+list with ATTACHED clear, holding its floor, owed nothing.
 
 ## §3 Subject charter
 
