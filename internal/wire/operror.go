@@ -36,6 +36,7 @@ const (
 	CodeNoConsumer     byte = 0x10 // consumer name unknown to this lane
 	CodeStreamDisabled byte = 0x11 // yard has no data dir; lanes refused
 	CodeServerFault    byte = 0x12 // storage refused the op; nothing pretended
+	CodeBadKey         byte = 0x13 // KV key off the §3.2 charter
 )
 
 // NameFor exposes the operator-facing name of a protocol error code. Lives
@@ -78,6 +79,8 @@ func NameFor(code byte) string {
 		return "stream-disabled"
 	case CodeServerFault:
 		return "server-fault"
+	case CodeBadKey:
+		return "bad-key"
 	default:
 		return "error"
 	}

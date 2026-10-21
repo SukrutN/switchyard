@@ -45,6 +45,10 @@ const (
 	// token under the filesystem-safe charset. Names become directory names,
 	// so len here and charset-server-side are two halves of one rule.
 	MaxStreamName = 64
+	// MaxKeyLen caps KV keys (§3.2). Keys live inside journal record bodies,
+	// never as directories, so the length cap is the whole wire half; the
+	// charset half rides with the server like every charter's byte rule.
+	MaxKeyLen = 128
 )
 
 // Policy flags inside bodies. Bit 0 of the flag byte means "the optional
@@ -55,6 +59,10 @@ const (
 const (
 	FlagReplyPresent  = 0x01
 	FlagFilterPresent = 0x02
+	// FlagKVFound marks a KV_VALUE body whose key holds a live value; only
+	// found answers carry a payload section (§2.22). Bit 0, family-scoped
+	// like every flag byte above it.
+	FlagKVFound = 0x01
 	// FlagFatal marks an Error frame whose receipt must end the session.
 	FlagFatal = 0x01
 )
@@ -90,6 +98,18 @@ const (
 	OpAck            Op = 0x12 // client→server: consumer ack, one sequence at a time
 	OpStreamDelete   Op = 0x13 // client→server: delete a lane and its positions
 	OpStreamGone     Op = 0x14 // server→client: delete confirmed (to attached consumers)
+)
+
+// Frame ops, KV family (§2.18–§2.23). Second append: KV records journal
+// alongside stream messages under the same lanes, so the family reuses the
+// receipt and keeps its numbers clear of the first family entirely.
+const (
+	OpKVSet     Op = 0x15 // client→server: journal a key-value pair on a lane
+	OpKVGet     Op = 0x16 // client→server: read one key
+	OpKVDelete  Op = 0x17 // client→server: journal a tombstone for one key
+	OpKVKeys    Op = 0x18 // client→server: list a lane's live keys
+	OpKVValue   Op = 0x19 // server→client: KV_GET answer, found flag included
+	OpKVKeyList Op = 0x1A // server→client: KV_KEYS answer, sorted keys
 )
 
 // String makes operator-facing logs name operations instead of showing bytes.
@@ -135,6 +155,18 @@ func (o Op) String() string {
 		return "STREAM_DELETE"
 	case OpStreamGone:
 		return "STREAM_GONE"
+	case OpKVSet:
+		return "KV_SET"
+	case OpKVGet:
+		return "KV_GET"
+	case OpKVDelete:
+		return "KV_DELETE"
+	case OpKVKeys:
+		return "KV_KEYS"
+	case OpKVValue:
+		return "KV_VALUE"
+	case OpKVKeyList:
+		return "KV_KEYLIST"
 	default:
 		return fmt.Sprintf("OP(0x%02X)", byte(o))
 	}
@@ -287,4 +319,48 @@ type StreamDelete struct {
 // StreamGone confirms a delete to sessions that held consumers on it.
 type StreamGone struct {
 	Name string
+}
+
+// KV ops bodies (§2.18–§2.23).
+
+// KVSet journals one key-value pair on a lane. Payload may be empty — the
+// receipt proves the write, not the value's length.
+type KVSet struct {
+	Lane    string
+	Key     string
+	Payload []byte
+}
+
+// KVGet asks for one key; the answer is a KVValue, found or not.
+type KVGet struct {
+	Lane string
+	Key  string
+}
+
+// KVDelete journals a tombstone. Delete of a missing key still journals
+// and still gets a receipt — the tombstone is the record (§2.20).
+type KVDelete struct {
+	Lane string
+	Key  string
+}
+
+// KVKeys asks for a lane's live keys; the answer is a KVKeyList.
+type KVKeys struct {
+	Lane string
+}
+
+// KVValue is the KV_GET answer. Found tells whether the value rides; Seq is
+// the journal sequence of the set that wrote it, 0 when not found.
+type KVValue struct {
+	Lane    string
+	Key     string
+	Seq     uint64
+	Found   bool
+	Payload []byte
+}
+
+// KVKeyList is the KV_KEYS answer: a lane's live keys, ascending bytewise.
+type KVKeyList struct {
+	Lane string
+	Keys []string
 }
