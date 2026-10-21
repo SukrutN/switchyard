@@ -288,6 +288,9 @@ func (st *stream) fanOutLocked(seq uint64, sub subjects.Subject, rec journalReco
 // owed, in lane order, on the session's delivery queue behind the READY.
 // A consumer name unknown to the lane starts fresh at the lane's beginning.
 func (st *stream) reserve(s *session, sid uint32, cName string, filter *subjects.Subject, ackWait time.Duration) (uint64, *consumer, byte, error) {
+	if sid == 0 {
+		return 0, nil, wire.CodeBadSubject, fmt.Errorf("sid 0 is reserved")
+	}
 	if s.sidTaken(sid) {
 		return 0, nil, wire.CodeDupConsumer, fmt.Errorf("sid %d already holds a subscription; one sid, one thing", sid)
 	}
