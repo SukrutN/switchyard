@@ -13,7 +13,7 @@ import (
 
 // Version is the single source of the product string: WELCOME label, logs,
 // readiness line, and the changelog all echo it.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // ServerLabel is what WELCOME advertises as the peer identity.
 func ServerLabel() string { return "switchyard/" + Version }

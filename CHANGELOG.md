@@ -36,3 +36,49 @@ Milestone M1 — pub/sub core.
 - Repo hygiene: Apache-2.0 license, CI gate (fmt, vet, tests with race
   detection on Linux runners), user-facing docs, issue template, and a
   reproducible `scripts/demo.ps1`.
+
+## [0.2.0] — 2026-10-21
+
+Milestone M2 — durable streams, the journal half of a yard.
+
+### Added
+- Lanes: a stream is one token, a lane is one journal. Ten wire ops
+  under §2.8–§2.17 (0x0B–0x14): `STREAM_CREATE`, `STREAM_READY`,
+  `STREAM_PUBLISH`, `STREAM_RECEIPT`, `CONSUMER_ATTACH`,
+  `CONSUMER_READY`, `STREAM_DELIVER`, `ACK`, `STREAM_DELETE`, and
+  `STREAM_GONE`, with lane-ordered, gapless sequences.
+- Durable journaling (`internal/server/journal.go`): append-only
+  `journal.log` with a 32-byte magic header, `u32 len | body | crc32`
+  records, fsync per record before the receipt answers, torn tails
+  truncated at boot, and per-consumer state files (`floor` + pending
+  set) rewritten on every ack. Missing or torn consumer state means a
+  fresh start, never a silent loss.
+- Durable consumers: attach reserves a position and delivers
+  `CONSUMER_READY` before any replayed byte (ordered on the delivery
+  queue, not the control one); redelivery keeps lane order; a dead
+  session's consumer resumes with `floor` + pending intact; fresh
+  consumers replay the whole lane from seq 1; re-attach with a changed
+  filter is refused rather than read as a moving target.
+- Sweeper: one goroutine per attached consumer redelivers pending
+  entries after `ackWait` (yard default 10s, wired to
+  `switchyard -ack-wait`); the sequence is the dedupe key, so
+  redelivery is copy-equality, never a different message.
+- The reference client library grows the lane set:
+  `StreamCreate`/`StreamPublish`(+`StreamPublishReply`)/`StreamDelete`/
+  `StreamAttach`/`LaneAck`/`DetachLane` plus `LaneDeliveries()`,
+  `StreamNotices()`, and `LaneDropped()`. Synchronous calls take turns
+  on one mutex so refusals return as Go errors and receipts pair with
+  the publish that owns them.
+- `spur stream` CLI: `create`, `delete`, `push` (receipt prints the
+  journal position), and `watch` (replay + follow, auto-ack optional,
+  `-filter` to narrow). `switchyard` gains `-data-dir` to turn lanes
+  on and `-ack-wait` to tune redelivery.
+- Lane-ops refusals: eight new named codes 0x0B–0x12 — unknown lane,
+  duplicate lane, bad lane name, first-token mismatch, duplicate
+  consumer, no such consumer, `STREAM_DISABLED` (no data dir), storage
+  fault. All non-fatal: a naming mistake keeps the session.
+- Engine test suite: refusal table, gapless seq under 4×25 concurrent
+  publishers, ack floor with persisted positions across restart,
+  torn-tail recovery (the boot assigns the last intact seq), filter
+  narrowness with floor skipping filtered seqs, delete clearing disk,
+  and an end-to-end story through the client library.
