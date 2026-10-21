@@ -63,6 +63,12 @@ const (
 	// found answers carry a payload section (§2.22). Bit 0, family-scoped
 	// like every flag byte above it.
 	FlagKVFound = 0x01
+	// FlagLaneQuarantined marks a LANE_STATE body whose lane's writes have
+	// failed once and it now refuses more until restart (§2.27).
+	FlagLaneQuarantined = 0x01
+	// FlagConsumerAttached marks one LANE_STATE consumer row whose session
+	// is live right now; clear means parked, holding its floor (§2.27).
+	FlagConsumerAttached = 0x01
 	// FlagFatal marks an Error frame whose receipt must end the session.
 	FlagFatal = 0x01
 )
@@ -110,6 +116,17 @@ const (
 	OpKVKeys    Op = 0x18 // client→server: list a lane's live keys
 	OpKVValue   Op = 0x19 // server→client: KV_GET answer, found flag included
 	OpKVKeyList Op = 0x1A // server→client: KV_KEYS answer, sorted keys
+)
+
+// Frame ops, console family (§2.24–§2.27). Third append: the yardmaster's
+// read-only view of the yard — one summary op and one drill-down, each with
+// its own state reply. No mutation rides these ops; the console is a lens,
+// not a lever.
+const (
+	OpYardInfo  Op = 0x1B // client→server: ask for the yard's summary
+	OpYardState Op = 0x1C // server→client: version, uptime, lanes, quarantined
+	OpLaneInfo  Op = 0x1D // client→server: ask one lane's detail
+	OpLaneState Op = 0x1E // server→client: seq, journal bytes, keys, consumers
 )
 
 // String makes operator-facing logs name operations instead of showing bytes.
@@ -167,6 +184,14 @@ func (o Op) String() string {
 		return "KV_VALUE"
 	case OpKVKeyList:
 		return "KV_KEYLIST"
+	case OpYardInfo:
+		return "YARD_INFO"
+	case OpYardState:
+		return "YARD_STATE"
+	case OpLaneInfo:
+		return "LANE_INFO"
+	case OpLaneState:
+		return "LANE_STATE"
 	default:
 		return fmt.Sprintf("OP(0x%02X)", byte(o))
 	}
@@ -363,4 +388,51 @@ type KVValue struct {
 type KVKeyList struct {
 	Lane string
 	Keys []string
+}
+
+// Console ops bodies (§2.24–§2.27): the yardmaster's read-only view.
+
+// YardInfo asks for the yard's summary; the exact body is empty.
+type YardInfo struct{}
+
+// YardLane is one row of YardState's lane table: name and last journaled
+// sequence (0 for a lane with no rows yet).
+type YardLane struct {
+	Name string
+	Seq  uint64
+}
+
+// YardState is the YARD_INFO answer. Rows are snapshots taken lane by lane
+// under each lane's own lock — consecutive rows may differ by the moments
+// between reads; nothing pretends to a global freeze.
+type YardState struct {
+	Version     string
+	UptimeSec   uint64
+	Sessions    uint32
+	Lanes       []YardLane
+	Quarantined []string
+}
+
+// LaneInfo asks one lane for its detail; the body is the lane name alone.
+type LaneInfo struct {
+	Lane string
+}
+
+// LaneConsumer is one consumer row of LaneState: durable position, delivered
+// rows not yet acked, and whether a session is attached right now.
+type LaneConsumer struct {
+	Name     string
+	Floor    uint64
+	Pending  uint32
+	Attached bool
+}
+
+// LaneState is the LANE_INFO answer.
+type LaneState struct {
+	Lane         string
+	Seq          uint64
+	Quarantined  bool
+	JournalBytes uint64
+	KeyCount     uint32
+	Consumers    []LaneConsumer
 }
