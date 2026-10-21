@@ -105,6 +105,13 @@ One sid is exactly one live subscription. A repeated sid — same or
 different pattern — is refused `DUP_SUB`, non-fatal, and clients that
 want to change a pattern unsubscribe first (`UNSUB` costs nothing).
 
+There is no subscribe ack in v1. The first publish that provably reaches
+a fresh subscription is one sent after a delivery from it has already
+returned. A publish fired from a different connection immediately after
+subscribing can race ahead of the registration — that is a lost message
+by construction, not a yard bug; ordering promises return with durable
+streams (M2).
+
 ### §2.5 UNSUB
 
 ```
