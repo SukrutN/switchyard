@@ -357,3 +357,87 @@ func TestStreamAttachRefusalReturnsSynchronously(t *testing.T) {
 		t.Fatalf("attach refusal = %v, want ClientError CodeDupConsumer", err)
 	}
 }
+
+// TestKVClientAPI pins the four KV round-trips: set and delete reuse the
+// receipt machinery (their refusals must come back as Go errors under the
+// same turn-taking), get answers found or not without an error, and keys
+// lists what the yard said, sorted, verbatim.
+func TestKVClientAPI(t *testing.T) {
+	y := newFakeYard(t, func(y *fakeYard, op wire.Op, body []byte) {
+		switch op {
+		case wire.OpKVSet:
+			s, _ := wire.DecodeKVSet(body)
+			if s.Key == "" || len(s.Key) > wire.MaxKeyLen {
+				eb, _ := wire.EncodeError(wire.ErrorResponse{Code: wire.CodeBadKey, Message: "key off the charter"})
+				_ = y.wr.WriteFrame(wire.OpError, eb)
+				return
+			}
+			if s.Lane == "nosuch" {
+				eb, _ := wire.EncodeError(wire.ErrorResponse{Code: wire.CodeStreamUnknown, Message: "no lane named nosuch"})
+				_ = y.wr.WriteFrame(wire.OpError, eb)
+				return
+			}
+			rb, _ := wire.EncodeStreamReceipt(wire.StreamReceipt{Stream: s.Lane, Seq: 11})
+			_ = y.wr.WriteFrame(wire.OpStreamReceipt, rb)
+		case wire.OpKVDelete:
+			d, _ := wire.DecodeKVDelete(body)
+			rb, _ := wire.EncodeStreamReceipt(wire.StreamReceipt{Stream: d.Lane, Seq: 12})
+			_ = y.wr.WriteFrame(wire.OpStreamReceipt, rb)
+		case wire.OpKVGet:
+			g, _ := wire.DecodeKVGet(body)
+			v := wire.KVValue{Lane: g.Lane, Key: g.Key}
+			if g.Key == "absent" {
+				// Not-found: flag clear, no payload section, seq 0.
+			} else {
+				v.Seq, v.Found, v.Payload = 11, true, []byte{}
+			}
+			vb, _ := wire.EncodeKVValue(v)
+			_ = y.wr.WriteFrame(wire.OpKVValue, vb)
+		case wire.OpKVKeys:
+			kl, _ := wire.EncodeKVKeyList(wire.KVKeyList{Lane: "orders", Keys: []string{"a", "b/c", "zz"}})
+			_ = y.wr.WriteFrame(wire.OpKVKeyList, kl)
+		}
+	})
+	c := dialFake(t, y, Options{})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	seq, err := c.KVSet(ctx, "orders", "cart.json", []byte("v1"))
+	if err != nil || seq != 11 {
+		t.Fatalf("kv set: seq %d err %v, want receipt 11 in hand", seq, err)
+	}
+	seq, err = c.KVDelete(ctx, "orders", "cart.json")
+	if err != nil || seq != 12 {
+		t.Fatalf("kv delete: seq %d err %v, want tombstone receipt 12", seq, err)
+	}
+	e := ""
+	seq, err = c.KVSet(ctx, "nosuch", "k", nil)
+	if ce, ok := err.(ClientError); !ok || ce.Code != wire.CodeStreamUnknown {
+		t.Fatalf("kv set unknown lane = %v %q, want ClientError CodeStreamUnknown", err, e)
+	}
+	_ = seq
+
+	v, err := c.KVGet(ctx, "orders", "cart.json")
+	if err != nil || !v.Found || v.Seq != 11 || len(v.Payload) != 0 {
+		t.Fatalf("kv get found-empty = %+v %v, want Found with zero-length payload (the flag is the truth)", v, err)
+	}
+	v, err = c.KVGet(ctx, "orders", "absent")
+	if err != nil || v.Found || v.Seq != 0 || v.Payload != nil {
+		t.Fatalf("kv get absent = %+v %v, want a clean not-found answer, no error", v, err)
+	}
+
+	keys, err := c.KVKeys(ctx, "orders")
+	if err != nil {
+		t.Fatalf("kv keys: %v", err)
+	}
+	want := []string{"a", "b/c", "zz"}
+	if len(keys) != len(want) {
+		t.Fatalf("keys %q, want %q", keys, want)
+	}
+	for i := range want {
+		if keys[i] != want[i] {
+			t.Fatalf("keys[%d] = %q, want %q", i, keys[i], want[i])
+		}
+	}
+}
