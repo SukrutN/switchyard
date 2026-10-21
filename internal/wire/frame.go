@@ -41,13 +41,20 @@ const (
 	MaxClientName  = 64
 	MaxSpeechLabel = 16 // client's "spoken by" tag, e.g. "cli", "go-sdk"
 	MaxServerLabel = 48
+	// MaxStreamName caps stream and consumer names (§3.1): a subject-charter
+	// token under the filesystem-safe charset. Names become directory names,
+	// so len here and charset-server-side are two halves of one rule.
+	MaxStreamName = 64
 )
 
 // Policy flags inside bodies. Bit 0 of the flag byte means "the optional
 // reply subject is present" — that flag is deliberately the same bit in every
 // body that carries one, so client code can branch on a single convention.
+// Bit 1 follows the same convention for optional filter patterns on consumer
+// bodies: present or absent, never present-and-empty.
 const (
-	FlagReplyPresent = 0x01
+	FlagReplyPresent  = 0x01
+	FlagFilterPresent = 0x02
 	// FlagFatal marks an Error frame whose receipt must end the session.
 	FlagFatal = 0x01
 )
@@ -68,6 +75,21 @@ const (
 	OpDeliver   Op = 0x08 // server→client: a message on one of your spurs
 	OpError     Op = 0x09 // server→client: the server refused something, with a reason
 	OpBye       Op = 0x0A // both directions: graceful close, no body
+)
+
+// Frame ops, stream family (§2.8–§2.17). Appended numbers, untouched older
+// ones — the op table grows by appending and never re-means an op.
+const (
+	OpStreamCreate   Op = 0x0B // client→server: open a durable lane
+	OpStreamReady    Op = 0x0C // server→client: lane opened, next seq advertised
+	OpStreamPublish  Op = 0x0D // client→server: journal a message on a lane
+	OpStreamReceipt  Op = 0x0E // server→client: journal write confirmed, seq assigned
+	OpConsumerAttach Op = 0x0F // client→server: attach (or resume) a push consumer
+	OpConsumerReady  Op = 0x10 // server→client: consumer live, next delivery seq advertised
+	OpStreamDeliver  Op = 0x11 // server→client: one lane message for one consumer
+	OpAck            Op = 0x12 // client→server: consumer ack, one sequence at a time
+	OpStreamDelete   Op = 0x13 // client→server: delete a lane and its positions
+	OpStreamGone     Op = 0x14 // server→client: delete confirmed (to attached consumers)
 )
 
 // String makes operator-facing logs name operations instead of showing bytes.
@@ -93,6 +115,26 @@ func (o Op) String() string {
 		return "ERROR"
 	case OpBye:
 		return "BYE"
+	case OpStreamCreate:
+		return "STREAM_CREATE"
+	case OpStreamReady:
+		return "STREAM_READY"
+	case OpStreamPublish:
+		return "STREAM_PUBLISH"
+	case OpStreamReceipt:
+		return "STREAM_RECEIPT"
+	case OpConsumerAttach:
+		return "CONSUMER_ATTACH"
+	case OpConsumerReady:
+		return "CONSUMER_READY"
+	case OpStreamDeliver:
+		return "STREAM_DELIVER"
+	case OpAck:
+		return "ACK"
+	case OpStreamDelete:
+		return "STREAM_DELETE"
+	case OpStreamGone:
+		return "STREAM_GONE"
 	default:
 		return fmt.Sprintf("OP(0x%02X)", byte(o))
 	}
@@ -161,4 +203,88 @@ type Deliver struct {
 	Reply    string
 	Payload  []byte
 	HasReply bool
+}
+
+// Stream ops bodies (§2.8–§2.17).
+
+// StreamCreate opens a durable lane. Name is §3.1-chartered; the server owns
+// the charset check, the codec owns the length half of it.
+type StreamCreate struct {
+	Name string
+}
+
+// StreamReady is the STREAM_CREATE answer. Seq is the next number the lane
+// will assign — 1 for a fresh lane, past the last journaled record after
+// recovery.
+type StreamReady struct {
+	Name string
+	Seq  uint64
+}
+
+// StreamPublish journals one message on a lane. Subject must be concrete and
+// its first token must equal the lane's name (server-side checks).
+type StreamPublish struct {
+	Stream   string
+	Subject  string
+	Reply    string
+	Payload  []byte
+	HasReply bool
+}
+
+// StreamReceipt confirms a journaled publish: the bytes are on disk and Seq
+// is the lane's order for this message, global to every consumer.
+type StreamReceipt struct {
+	Stream string
+	Seq    uint64
+}
+
+// ConsumerAttach opens or resumes a push consumer on a lane. Consumer names
+// are durable: reattach after a session loss resumes from the persisted
+// floor. Filter is an optional §3 pattern over message subjects.
+type ConsumerAttach struct {
+	Stream        string
+	Consumer      string
+	Sid           uint32
+	Filter        string
+	HasFilter     bool
+	AckWaitMillis uint32 // 0 = yard default
+}
+
+// ConsumerReady is the CONSUMER_ATTACH answer and the lane's settle frame:
+// Next is the first sequence the client should expect, and the consumer is
+// live from here on.
+type ConsumerReady struct {
+	Stream        string
+	Consumer      string
+	Sid           uint32
+	Next          uint64
+	AckWaitMillis uint32
+}
+
+// StreamDeliver is one lane message toward one consumer. Seq is the lane's
+// sequence — shared by every consumer of the lane — not a per-session counter.
+type StreamDeliver struct {
+	Subject  string
+	Sid      uint32
+	Seq      uint64
+	Reply    string
+	Payload  []byte
+	HasReply bool
+}
+
+// Ack advances a consumer's position one sequence at a time. No reply frame
+// exists for it; the floor advance is silent by contract (§2.15).
+type Ack struct {
+	Sid uint32
+	Seq uint64
+}
+
+// StreamDelete removes a lane: journal and consumer positions included.
+type StreamDelete struct {
+	Name string
+}
+
+// StreamGone confirms a delete to sessions that held consumers on it.
+type StreamGone struct {
+	Name string
 }

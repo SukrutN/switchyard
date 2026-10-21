@@ -20,6 +20,9 @@ func main() {
 		addr     = flag.String("addr", "127.0.0.1:4780", "listen spec: host:port")
 		maxBody  = flag.Int64("max-body", int64(server.DefaultMaxBody), "frame body ceiling in bytes")
 		logLevel = flag.String("log-level", "info", "debug|info|warn|error")
+		// Lanes stay off without a data dir: durability needs a home.
+		dataDir = flag.String("data-dir", "", "enable durable streams; journal dir (e.g. ./data)")
+		ackWait = flag.Duration("ack-wait", server.DefaultAckWait, "lane redelivery default per consumer, overridable on attach")
 		// Heartbeats are here for operators who care; defaults match code.
 		idle  = flag.Duration("idle", server.DefaultIdle, "silence before the yard pings a client")
 		grace = flag.Duration("grace", server.DefaultGrace, "silence after the ping before the yard closes")
@@ -40,6 +43,8 @@ func main() {
 	cfg := server.Config{
 		Addr:    *addr,
 		MaxBody: uint32(*maxBody),
+		DataDir: *dataDir,
+		AckWait: *ackWait,
 		Idle:    *idle,
 		Grace:   *grace,
 		Log:     log,
@@ -53,9 +58,14 @@ func main() {
 	runErr := make(chan error, 1)
 	go func() { runErr <- srv.Run() }()
 
+	lanes := "off"
+	if *dataDir != "" {
+		lanes = *dataDir
+	}
 	log.Info("yard open",
 		"addr", srv.Addr(),
 		"maxBody", cfg.MaxBody,
+		"lanes", lanes,
 		"idle", *idle, "grace", *grace,
 		"version", server.Version,
 	)
