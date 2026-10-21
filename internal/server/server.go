@@ -1,0 +1,164 @@
+package server
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"sync"
+	"time"
+
+	"github.com/SukrutN/switchyard/internal/wire"
+)
+
+// Version is the single source of the product string: WELCOME label, logs,
+// readiness line, and the changelog all echo it.
+const Version = "0.1.0"
+
+// ServerLabel is what WELCOME advertises as the peer identity.
+func ServerLabel() string { return "switchyard/" + Version }
+
+// Config defaults exist so a plain NewServer(Config{Addr: ...}) is already a
+// sane yard: 1 MiB frames, 512-deep delivery queues, heartbeats that keep a
+// quiet client alive for Idle+Grace total silence.
+const (
+	DefaultMaxBody      = 1 << 20 // 1 MiB, below the 4 MiB protocol ceiling
+	DefaultOutBuf       = 512
+	DefaultIdle         = 30 * time.Second
+	DefaultGrace        = 10 * time.Second
+	DefaultWriteTimeout = 10 * time.Second
+)
+
+// Config is identical in meaning to its name. Zero values fall back to the
+// defaults; the one field worth setting by hand is Addr.
+type Config struct {
+	Addr         string        // listen spec, e.g. "127.0.0.1:4780"
+	MaxBody      uint32        // frame body ceiling, ≤ wire.MaxBodyBytes
+	OutBuf       int           // deliver-queue depth per session
+	Idle         time.Duration // silence before the yard sends PING
+	Grace        time.Duration // silence after PING before the yard closes
+	WriteTimeout time.Duration // per-frame write budget
+	Log          *slog.Logger
+}
+
+func (c *Config) withDefaults() {
+	if c.MaxBody == 0 {
+		c.MaxBody = DefaultMaxBody
+	}
+	if c.MaxBody > wire.MaxBodyBytes {
+		c.MaxBody = wire.MaxBodyBytes
+	}
+	if c.OutBuf <= 0 {
+		c.OutBuf = DefaultOutBuf
+	}
+	if c.Idle <= 0 {
+		c.Idle = DefaultIdle
+	}
+	if c.Grace <= 0 {
+		c.Grace = DefaultGrace
+	}
+	if c.WriteTimeout <= 0 {
+		c.WriteTimeout = DefaultWriteTimeout
+	}
+	if c.Log == nil {
+		c.Log = slog.Default()
+	}
+}
+
+// Server owns the listener, the routing hub, and the session bookkeeping.
+// One Server per process is the intended use; nothing is global.
+type Server struct {
+	cfg    Config
+	hub    *Hub
+	ln     net.Listener
+	log    *slog.Logger
+	mu     sync.Mutex // guards closed + the wg Add/intent pairing
+	closed bool
+	wg     sync.WaitGroup
+}
+
+// NewServer binds immediately — bring-up errors surface here, not at Run.
+func NewServer(cfg Config) (*Server, error) {
+	cfg.withDefaults()
+	if cfg.Addr == "" {
+		cfg.Addr = "127.0.0.1:4780"
+	}
+	ln, err := net.Listen("tcp", cfg.Addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen %s: %w", cfg.Addr, err)
+	}
+	return &Server{cfg: cfg, hub: newHub(), ln: ln, log: cfg.Log}, nil
+}
+
+// Addr reports the bound spec — the tests use an ephemeral port and need the
+// real answer, ":0" lies.
+func (srv *Server) Addr() string { return srv.ln.Addr().String() }
+
+// Hub exposes the routing center for operator introspection (console, tests).
+// Not for runtime mutation by callers; the sessions own the mutations.
+func (srv *Server) Hub() *Hub { return srv.hub }
+
+// Run accepts connections until the listener closes. Transient accept
+// failures retry with a small backoff; a poisoned listener gives up at 50.
+func (srv *Server) Run() error {
+	fails := 0
+	for {
+		conn, err := srv.ln.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+			fails++
+			if fails > 50 {
+				return fmt.Errorf("accept: %w", err)
+			}
+			srv.log.Warn("accept failed, retrying", "err", err, "attempt", fails)
+			time.Sleep(time.Duration(fails) * 10 * time.Millisecond)
+			continue
+		}
+		fails = 0
+		if tc, ok := conn.(*net.TCPConn); ok {
+			_ = tc.SetKeepAlive(true) // spurs live long; OS-level liveness helps
+		}
+		go srv.serveConn(conn)
+	}
+}
+
+// serveConn owns one connection end to end. Stop-safety: the closed flag and
+// the WaitGroup are paired under mu, so Stop's Wait can never miss a
+// session that is about to start.
+func (srv *Server) serveConn(conn net.Conn) {
+	srv.mu.Lock()
+	if srv.closed {
+		srv.mu.Unlock()
+		conn.Close()
+		return
+	}
+	srv.wg.Add(1)
+	srv.mu.Unlock()
+	defer srv.wg.Done()
+	defer conn.Close()
+
+	id := srv.hub.nextID()
+	s := newSession(id, &srv.cfg, srv.hub, srv.log, conn)
+	srv.hub.register(s)
+	err := s.serve()
+	srv.hub.unregister(id)
+
+	reason := "bye"
+	if err != nil {
+		reason = err.Error()
+	}
+	srv.log.Info("client out", "session", id, "name", s.peerName, "reason", reason)
+}
+
+// Stop closes the listener and every open connection, then waits for the
+// session goroutines to land. Idempotent; safe to call from a signal path.
+func (srv *Server) Stop() {
+	srv.mu.Lock()
+	srv.closed = true
+	srv.mu.Unlock()
+	_ = srv.ln.Close()
+	srv.hub.closeAll() // readers are parked on deadlines; closing unblocks them now
+	srv.wg.Wait()
+}
