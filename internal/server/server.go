@@ -180,7 +180,9 @@ func (srv *Server) serveConn(conn net.Conn) {
 }
 
 // Stop closes the listener and every open connection, then waits for the
-// session goroutines to land. Idempotent; safe to call from a signal path.
+// session goroutines to land. Lanes close last: their journals are already
+// fsync-per-record, so a Stop loses nothing — handles just go away tidily.
+// Idempotent; safe to call from a signal path.
 func (srv *Server) Stop() {
 	srv.mu.Lock()
 	srv.closed = true
@@ -188,4 +190,5 @@ func (srv *Server) Stop() {
 	_ = srv.ln.Close()
 	srv.hub.closeAll() // readers are parked on deadlines; closing unblocks them now
 	srv.wg.Wait()
+	srv.hub.lanes.shutdown()
 }
