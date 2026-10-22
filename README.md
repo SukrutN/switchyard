@@ -13,6 +13,8 @@ Status: **v1.0.0** — the yard ships. Protocol v1 is frozen (families
 append, numbers never move), the client library and spur speak the
 whole surface, and the bench rod prints honest numbers: pub/sub, durable
 streams ("lanes"), KV, the Yardmaster lens, token auth with TLS sessions.
+See it laid out end to end: https://sukrutn.github.io/switchyard-site/
+— one page covering the laws, the numbers, the tour and the quickstart.
 
 ## Quickstart
 
