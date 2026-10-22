@@ -22,6 +22,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -67,6 +68,19 @@ func exitCode(err error) int {
 }
 
 func run() error {
+	// Verb-first, spur-style: the scenario word comes before any flag,
+	// so `yardstick ping -n 200` reads the way it runs. A leading word
+	// that isn't a verb is a usage error, not a mystery.
+	verb, args := "all", os.Args[1:]
+	known := map[string]bool{"all": true, "ping": true, "pubsub": true, "journal": true}
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		if !known[args[0]] {
+			return usageError{"unknown scenario " + args[0]}
+		}
+		verb = args[0]
+		args = args[1:]
+	}
+
 	fs := flag.NewFlagSet("yardstick", flag.ContinueOnError)
 	var (
 		addr     = fs.String("addr", "127.0.0.1:4780", "yard to measure")
@@ -78,23 +92,14 @@ func run() error {
 		subs     = fs.Int("subs", 4, "pubsub fan-out sids")
 		payload  = fs.Int("payload", 128, "payload bytes per row")
 	)
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() > 1 {
+	if fs.NArg() > 0 {
 		return usageError{"usage: yardstick [ping|pubsub|journal] [flags]"}
 	}
 	if *n <= 0 || *pubs <= 0 || *subs <= 0 || *payload <= 0 {
 		return usageError{"-n, -pubs, -subs, -payload must be positive"}
-	}
-	verb := "all"
-	if fs.NArg() == 1 {
-		verb = fs.Arg(0)
-	}
-	switch verb {
-	case "all", "ping", "pubsub", "journal":
-	default:
-		return usageError{"unknown scenario " + verb}
 	}
 
 	// The counting subscriber holds every delivery, so its buffer is the
@@ -121,6 +126,12 @@ func run() error {
 		return err
 	}
 	defer c.Close()
+	// The yard's own words are evidence: fatal frames print verbatim.
+	go func() {
+		for e := range c.Errors() {
+			fmt.Fprintf(os.Stderr, "yardstick: yard: %v\n", e)
+		}
+	}()
 	w := c.Welcome()
 	fmt.Printf("yardstick against %s (max body %s bytes)\n", w.ServerLabel, comma(int(w.MaxBody)))
 
@@ -187,9 +198,38 @@ func benchPing(c *client.Client, cfg bench) error {
 	}
 	elapsed := time.Since(start)
 	p50, p95 := percentiles(durs)
-	fmt.Printf("%-8s %s ms p50, %s ms p95, %s probes/sec\n",
-		"ping", ms(p50), ms(p95), comma(int(float64(cfg.n)/elapsed.Seconds())))
+	fmt.Printf("%-8s %s min, %s p50, %s p95, %s max, %s probes/sec\n",
+		"ping", us(minDur(durs)), ms(p50), ms(p95), ms(maxDur(durs)), comma(int(float64(cfg.n)/elapsed.Seconds())))
 	return nil
+}
+
+func minDur(d []time.Duration) time.Duration {
+	m := d[0]
+	for _, v := range d[1:] {
+		if v < m {
+			m = v
+		}
+	}
+	return m
+}
+
+func maxDur(d []time.Duration) time.Duration {
+	m := d[0]
+	for _, v := range d[1:] {
+		if v > m {
+			m = v
+		}
+	}
+	return m
+}
+
+// us speaks a duration in microseconds for the suspicious-small end.
+func us(d time.Duration) string {
+	v := float64(d) / float64(time.Microsecond)
+	if v < 100 {
+		return strconv.FormatFloat(v, 'f', 1, 64) + " µs"
+	}
+	return ms(d)
 }
 
 // benchPubsub is the fan-out engine without receipts: P publishers fire N
@@ -202,20 +242,56 @@ func benchPubsub(host *client.Client, cfg bench) error {
 	target := int64(cfg.n) * int64(cfg.subs)
 	var seen atomic.Int64
 	done := make(chan struct{})
-	go func() {
+	var once sync.Once
+	finish := func() { once.Do(func() { close(done) }) }
+
+	// Waves, gated by the counting reader. Fire-and-forget has no
+	// backpressure on the wire (§2.6), so an unbounded instant burst is a
+	// lottery about the queue cap, not a measurement: hub enqueue runs at
+	// memory speed and the writer's drain does not, and a burst beyond the
+	// queue cap reaps never-slow readers. A wave holds until it has fully
+	// landed before the next leaves: the rate this prints is what the yard
+	// sustains, not an overflow dice roll.
+	// Wave size keeps each wave at ≤ ~2048 deliveries regardless of fan-out,
+	// held at least to one message so tiny waves cannot stall math.
+	waveMsgs := 2048 / cfg.subs
+	if waveMsgs < 1 {
+		waveMsgs = 1
+	}
+	waves := (cfg.n + waveMsgs - 1) / waveMsgs
+	waveDeliv := int64(waveMsgs * cfg.subs) // deliveries the drain must see per wave
+	gates := make([]chan struct{}, waves)
+	for i := range gates {
+		gates[i] = make(chan struct{})
+	}
+	go func() { // one drain: counts, releases wave gates, reports the end
+		gateIdx := 0
+		nextGateAt := waveDeliv
 		for range host.Deliveries() {
-			if seen.Add(1) == target {
-				close(done)
+			now := seen.Add(1)
+			if now == target {
+				finish()
+			}
+			for gateIdx < waves && nextGateAt <= now {
+				close(gates[gateIdx])
+				gateIdx++
+				nextGateAt += waveDeliv
 			}
 		}
-		close(done) // deliveries closed = the session ended; the waiter reports
+		finish() // deliveries closed = the session ended; the waiter reports
 	}()
-	defer close(done)
 
 	for i := 0; i < cfg.subs; i++ {
 		if err := host.Subscribe(uint32(i+1), ">"); err != nil {
 			return fmt.Errorf("subscribe sid %d: %w", i+1, err)
 		}
+	}
+	// A PING on the same session is the settle line: the yard answers the
+	// PONG only after every SUBSCRIBE before it was dispatched to the hub,
+	// so no publisher can beat a not-yet-registered sid. (v1 wire has no
+	// subscribe ack; §2.6.)
+	if err := host.Ping(ctx); err != nil {
+		return fmt.Errorf("settle ping: %w", err)
 	}
 
 	publishers := make([]*client.Client, cfg.pubs)
@@ -231,24 +307,32 @@ func benchPubsub(host *client.Client, cfg bench) error {
 	start := time.Now()
 	var wg sync.WaitGroup
 	for i, pc := range publishers {
-		count := cfg.n / cfg.pubs
-		if i == cfg.pubs-1 {
-			count = cfg.n - cfg.n/cfg.pubs*(cfg.pubs-1)
-		}
 		wg.Add(1)
-		go func(pc *client.Client, count int) {
+		go func(pc *client.Client, pubNum int) {
 			defer wg.Done()
-			for j := 0; j < count; j++ {
+			// Strided members: this publisher fires messages m where
+			// m % pubs == pubNum, crossing wave boundaries only after the
+			// previous wave has fully landed (its gate closes).
+			lastWave := -1
+			for m := pubNum; m < cfg.n; m += cfg.pubs {
+				if wv := m / waveMsgs; wv != lastWave {
+					if lastWave >= 0 {
+						<-gates[lastWave]
+					}
+					lastWave = wv
+				}
 				if err := pc.Publish("bench.row", cfg.pay); err != nil {
 					fmt.Fprintf(os.Stderr, "yardstick: publish: %v\n", err)
 					return
 				}
 			}
-		}(pc, count)
+		}(pc, i)
 	}
 	wg.Wait()
 	select {
 	case <-done:
+	case <-host.Done():
+		return fmt.Errorf("subscriber session ended early at %d/%d deliveries", seen.Load(), target)
 	case <-time.After(2 * time.Minute):
 		return fmt.Errorf("fan-out stalled at %d/%d deliveries", seen.Load(), target)
 	}
@@ -304,12 +388,15 @@ func percentiles(durs []time.Duration) (p50, p95 time.Duration) {
 }
 
 // ms speaks one duration in millisecond words, decimals for the small.
+// The unit rides in the value itself. NOTE: on Windows the process clock
+// ticks at ~0.5 ms, so sub-0.5 ms round trips read as fractions rounding
+// toward zero — the probes/sec value carries the honest picture there.
 func ms(d time.Duration) string {
 	v := float64(d) / float64(time.Millisecond)
 	if v < 10 {
-		return strconv.FormatFloat(v, 'f', 3, 64)
+		return strconv.FormatFloat(v, 'f', 3, 64) + " ms"
 	}
-	return strconv.FormatFloat(v, 'f', 1, 64)
+	return strconv.FormatFloat(v, 'f', 1, 64) + " ms"
 }
 
 // comma inserts grouping: 1,048,576. Locale-free by choice.

@@ -25,12 +25,16 @@ func TestHelpersSpeak(t *testing.T) {
 		}
 	}
 
-	// Millisecond speech keeps decimals under 10 and rounds the rest.
-	if got := ms(300 * time.Microsecond); got != "0.300" {
-		t.Fatalf("ms(300µs) = %q, want 0.300", got)
+	// Millisecond speech keeps decimals under 10 and rounds the rest; the
+	// unit rides in the value.
+	if got := ms(300 * time.Microsecond); got != "0.300 ms" {
+		t.Fatalf("ms(300µs) = %q, want 0.300 ms", got)
 	}
-	if got := ms(1534 * time.Millisecond); got != "1534.0" {
-		t.Fatalf("ms(1.534s) = %q, want 1534.0", got)
+	if got := ms(1534 * time.Millisecond); got != "1534.0 ms" {
+		t.Fatalf("ms(1.534s) = %q, want 1534.0 ms", got)
+	}
+	if got := us(48 * time.Microsecond); got != "48.0 µs" {
+		t.Fatalf("us(48µs) = %q, want 48.0 µs", got)
 	}
 
 	// Percentiles come from sorted probes, not arrival order. Five probes:
