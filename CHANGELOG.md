@@ -4,6 +4,24 @@ All notable changes to switchyard are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `cmd/yardmaster`, the yard's browser console: a read-only companion
+  binary that dials the running yard as an ordinary client (same gate,
+  same wrap, same dial vocabulary) and serves, embedded in itself, a
+  console page mirroring the console family's answers — the yard card
+  (version, uptime, sessions, quarantine), the lane table with journal
+  sizes and durable consumer floors, and a key–value browser that can
+  look but never set. A dark yard prints its refusal in the wire's own
+  words; the page pauses its polling when the tab is not watched. No
+  op changes and no client-library changes: a console is a client too,
+  and it cannot write a single byte to the yard.
+- `internal/lensweb`, the console's read-only bridge — one session per
+  request, opens, reads, closes — with its own handler test suite
+  (honest snapshot shapes, row-carried refusals, dark-budget, absence
+  answered as a fact).
+
 ## [1.0.0] — 2026-10-21
 
 The yard ships. No new ops and no engine changes — this is the promise
