@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/SukrutN/switchyard/internal/subjects"
 	"github.com/SukrutN/switchyard/internal/wire"
@@ -31,6 +32,7 @@ type Hub struct {
 	root     *node
 	sessions map[uint64]*session
 	next     uint64
+	boot     time.Time // the console's uptime fact; set at construction
 
 	lanes *laneRegistry
 }
@@ -56,7 +58,29 @@ type entry struct {
 }
 
 func newHub(lanes *laneRegistry) *Hub {
-	return &Hub{root: &node{}, sessions: make(map[uint64]*session), lanes: lanes}
+	return &Hub{root: &node{}, sessions: make(map[uint64]*session), lanes: lanes, boot: time.Now()}
+}
+
+// sessionCount is the console's live-session fact: how many sessions the
+// registry holds right now, this session included (§2.25).
+func (h *Hub) sessionCount() uint32 {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return uint32(len(h.sessions))
+}
+
+// yardState assembles the YARD_STATE answer (§2.25): the yard's own facts
+// (version, uptime, sessions) over the lanes' rows from the registry. One
+// moment in time, honestly assembled lane by lane.
+func (h *Hub) yardState(version string) wire.YardState {
+	lanes, quarantined := h.lanes.state()
+	return wire.YardState{
+		Version:     version,
+		UptimeSec:   uint64(time.Since(h.boot).Seconds()),
+		Sessions:    h.sessionCount(),
+		Lanes:       lanes,
+		Quarantined: quarantined,
+	}
 }
 
 // eachSession walks live sessions under the hub lock. Used by operator lanes

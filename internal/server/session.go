@@ -203,7 +203,7 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 	switch op {
 	case wire.OpWelcome, wire.OpDeliver, wire.OpStreamReady, wire.OpStreamReceipt,
 		wire.OpConsumerReady, wire.OpStreamDeliver, wire.OpStreamGone,
-		wire.OpKVValue, wire.OpKVKeyList:
+		wire.OpKVValue, wire.OpKVKeyList, wire.OpYardState, wire.OpLaneState:
 		return s.kill("received reserved server op "+op.String(), wire.CodeMalformed)
 	}
 
@@ -611,6 +611,48 @@ func (s *session) dispatch(op wire.Op, body []byte) error {
 		}
 		s.pushCtl(wire.OpKVKeyList, kb, false)
 		s.log.Debug("kv keys", "session", s.id, "lane", p.Lane)
+		return nil
+
+	case wire.OpYardInfo:
+		if !s.handshaked {
+			return s.pushErr("yard info before hello", wire.CodeNotHandshaked)
+		}
+		if _, err := wire.DecodeYardInfo(body); err != nil {
+			return s.kill("yard body unreadable: "+err.Error(), wire.CodeMalformed)
+		}
+		yb, err := wire.EncodeYardState(s.hub.yardState(Version))
+		if err != nil {
+			return fmt.Errorf("encode yard state: %w", err)
+		}
+		s.pushCtl(wire.OpYardState, yb, false)
+		s.log.Debug("yard info", "session", s.id)
+		return nil
+
+	case wire.OpLaneInfo:
+		if !s.handshaked {
+			return s.pushErr("lane info before hello", wire.CodeNotHandshaked)
+		}
+		p, err := wire.DecodeLaneInfo(body)
+		if err != nil {
+			code, msg := streamRefusal(err, "lane info body unreadable: ")
+			if code == wire.CodeMalformed {
+				return s.kill(msg, code)
+			}
+			return s.pushErr(msg, code)
+		}
+		if !s.hub.lanes.enabled() {
+			return s.pushErr("lane info refused: this yard has no data dir; lanes stay off", wire.CodeStreamDisabled)
+		}
+		st := s.hub.lanes.resolve(p.Lane)
+		if st == nil {
+			return s.pushErr("lane info refused: no lane named "+p.Lane, wire.CodeStreamUnknown)
+		}
+		lb, lerr := wire.EncodeLaneState(st.consoleState())
+		if lerr != nil {
+			return fmt.Errorf("encode lane state: %w", lerr)
+		}
+		s.pushCtl(wire.OpLaneState, lb, false)
+		s.log.Debug("lane info", "session", s.id, "lane", p.Lane)
 		return nil
 
 	default:
