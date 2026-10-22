@@ -14,6 +14,12 @@ family (§2.24–§2.27) the third, and the auth pair (§2.28–§2.29) the
 fourth — and older clients keep working because their ops did not move
 and unknown inbound ops have always been fatal.
 
+With switchyard v1.0.0 this surface freezes, exactly as described:
+families append, numbers never move or re-mean, error codes stay put,
+and a client written against this file today wires up unchanged against
+later 1.x yards tomorrow. Anything else would not be a patch to
+protocol v1 — it would be v2, written down in a different document.
+
 ## §1 Frame layout
 
 TCP. Big-endian everywhere. One logical transaction is one frame:
@@ -112,7 +118,7 @@ non-fatal, except PING which answers PONG early (probe-the-yard use).
 ### §2.2 WELCOME
 
 ```
-u16  labelLen  0..48    e.g. "switchyard/0.1.0"
+u16  labelLen  0..48    e.g. "switchyard/1.0.0"
 u8   label[labelLen]
 u32  maxBody            this yard's frame-body ceiling
 ```
