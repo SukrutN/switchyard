@@ -8,9 +8,10 @@ subscriber gets — in accepted order, with nothing invented between sender
 and receiver. That sentence is a test suite, not a slogan: `internal/server`
 enforces it frame by frame.
 
-Status: **v0.1.0** — pub/sub core, wire protocol v1, reference CLI,
-integration tests. Next: durable streams (M2), built-in web console
-"Yardmaster" (M3), auth + TLS + benchmarks (M4).
+Status: **v0.6.0** — pub/sub core, durable streams ("lanes"), KV over the
+same journal, the Yardmaster lens (console introspection), token auth
+with TLS sessions, and the yardstick bench suite. Protocol v1 throughout.
+Next on the shelf: the v1.0 polish.
 
 ## Quickstart
 
@@ -43,6 +44,10 @@ Or, one command, fully scripted:
 
 ## What v0.1 has
 
+> Note: this section survived from v0.1 wording; the newer families
+> (lanes, KV, the console lens, the gate) are documented in
+> `docs/PROTOCOL.md` §2.8–§2.29 and their milestones in [CHANGELOG.md](CHANGELOG.md).
+
 - **Wire protocol v1** — 8-byte framed, big-endian, length-prefixed, with
   named ops and stable error codes. Spec:
   [`docs/PROTOCOL.md`](docs/PROTOCOL.md); its only definition lives in `internal/wire`.
@@ -70,12 +75,14 @@ protocol code.
 ```
 cmd/switchyard         the broker binary
 cmd/spur               the reference client CLI
+cmd/yardstick          the bench suite: ping, fan-out, journaled rows/keys
 internal/wire          frame codec; the protocol's single source
 internal/subjects      the charter + matcher; wall of tests
 internal/server        accept loop, hub, sessions
 internal/client        reference client library
 docs/PROTOCOL.md       the whole wire contract
 scripts/demo.ps1       reproducible bring-up
+scripts/bench.ps1      reproducible numbers (throwaway yard, full teardown)
 ```
 
 ## Design notes
@@ -84,11 +91,52 @@ scripts/demo.ps1       reproducible bring-up
   writer goroutine per session; the writer is the only thing touching
   the socket for writes, which is what makes per-subscription ordering a
   property of construction rather than of luck.
-- **Bounded by default.** 1 MiB frames, 512-deep queues, 30s+10s
-  heartbeat windows. Configure up; the protocol ceiling is 4 MiB.
+- **Bounded by default.** 1 MiB frames, 4096-deep delivery queues (the
+  burst-dam), 30s+10s heartbeat windows. Configure up; the protocol
+  ceiling is 4 MiB.
 - **Slow-die bias.** A session that cannot keep up gets one fatal
   `SLOW_CONSUMER` rather than letting the yard grow memory without
-  bound. Catch up before you stall again.
+  bound. Catch up before you stall again. The queue dam is wide enough
+  for honest bursty traffic — when the verdict lands, it means the
+  paused *reader*, not arithmetic (the writer batch-drains and ships
+  frames coalesced for exactly this reason).
+
+## The yard by the numbers
+
+`yardstick` measures what an operator gets: round-trip probes, fan-out
+through the delivery queues, and the journal's per-record fsync story —
+a `lane` row or a KV set is not acknowledged until its bytes are on
+disk. Fire-and-forget has no backpressure on the wire, so the pubsub
+scene publishes in waves the counting reader gates: nothing prints from
+dropped work, and the rate is what the yard sustains, not an overflow
+dice roll.
+
+One command reproduces the whole table:
+
+```
+powershell -File scripts\bench.ps1        # throwaway yard; -Rows 2000 -Payload 128
+```
+
+Defaults, throwaway yard on 127.0.0.1, Windows 11, Go 1.25,
+Intel(R) Core(TM) i7-8700 CPU @ 3.20 GHz. Three consecutive runs
+(2026-10-21); the spread is machine noise, shown so the table cannot lie:
+
+| scenario | gauge                                  | three-run range            |
+| -------- | -------------------------------------- | -------------------------- |
+| ping     | probes/sec (PONG round trip, p95)      | 14.3–17.4 k/s; p95 ≈ 0.52 ms |
+| pubsub   | deliveries/sec (2,000 msgs × 4 sids * 128 B) | 0.42–1.15 M/s        |
+| lane     | rows/sec (2,000 rows * 128 B, receipt per row) | 228–273             |
+| kv       | keys/sec (2,000 sets * 128 B, receipt per set) | 273–297             |
+
+Read it the yardmaster's way: the top half is the wire's clock (loopback
+gossip rates); the bottom half is a lucky disk's clock — per-record
+fsync on a system SSD. On slower disks the journal numbers fall with the
+hardware, by design: the receipt is a promise, not a hope.
+
+Numbers lie when their conditions are silent: the rod prints its yard
+identity, the counting reader refuses runs with dropped deliveries, and
+the bench script tears its throwaway yard down before it exits.
+
 
 ## M2 preview: the yard law continues
 

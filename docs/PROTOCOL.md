@@ -714,7 +714,7 @@ ends): `MALFORMED`, `UNSUPPORTED_VERSION`, `SLOW_CONSUMER`, `UNKNOWN_OP`,
 | stream / consumer name | 64           |
 | KV key bytes   | 128                  |
 | auth token     | 1..256 bytes         |
-| deliver queue (per session) | 512 messages |
+| deliver queue (per session) | 4096 messages |
 | control queue (per session) | 256 frames  |
 | consumer ack-wait default | 10 seconds |
 
