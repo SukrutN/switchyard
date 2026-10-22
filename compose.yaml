@@ -1,0 +1,28 @@
+# The yard as two services from one image: the broker itself, with its
+# metrics port beside it, and the read-only yardmaster console watching it.
+# Tokens are optional; set them in the environment when the ports go wider
+# than this machine.
+services:
+  yard:
+    build: .
+    image: switchyard
+    command: ["-addr", "0.0.0.0:4780", "-data-dir", "/data", "-metrics", "0.0.0.0:4781"]
+    ports:
+      - "4780:4780"
+      - "4781:4781"
+    volumes:
+      - yard-data:/data
+    restart: unless-stopped
+
+  yardmaster:
+    image: switchyard
+    entrypoint: ["/usr/local/bin/yardmaster"]
+    command: ["-addr", "yard:4780", "-http", "0.0.0.0:8060"]
+    ports:
+      - "8060:8060"
+    depends_on:
+      - yard
+    restart: unless-stopped
+
+volumes:
+  yard-data:
