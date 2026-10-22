@@ -8,6 +8,7 @@
 //	spur stream create orders              give the yard a lane to journal
 //	spur stream push  orders orders.9001.paid ok
 //	spur stream watch orders billing       replay + follow a durable consumer
+//	spur kv    set orders box-42 'ok'      key-value state on the same lane
 //	spur yard                              the yardmaster's console view
 //
 // Quote subjects in shells: '*' is a glob character and shells eat it.
