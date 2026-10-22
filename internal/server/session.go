@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"crypto/subtle"
 	"fmt"
 	"log/slog"
@@ -84,6 +85,10 @@ type session struct {
 	mu   sync.Mutex
 	subs map[uint32]string // sid → pattern; one sid, exactly one subscription
 
+	// lane and spur delivery bytes fold into one socket write per batch.
+	// Writer-goroutine-private, like seq.
+	batch []byte
+
 	// lanes holds durable-consumer references: sid → where its acks go.
 	// Same mu as subs; together they are the "one sid, one thing" registry.
 	lanes map[uint32]laneRef
@@ -97,6 +102,11 @@ type session struct {
 	peerLabel  string // HELLO label, same contract
 }
 
+// Buffer the wire: one fill recv covers dozens of small frames. Per-frame
+// syscalls pace ingest at syscall speed, and Fan-out enqueue outran it —
+// the read half of the same arithmetic that batched the writer.
+const wireReadBuf = 32 << 10
+
 func newSession(id uint64, cfg *Config, hub *Hub, log *slog.Logger, conn net.Conn) *session {
 	return &session{
 		id:    id,
@@ -104,7 +114,7 @@ func newSession(id uint64, cfg *Config, hub *Hub, log *slog.Logger, conn net.Con
 		hub:   hub,
 		log:   log,
 		conn:  conn,
-		rd:    wire.NewReader(conn, cfg.MaxBody),
+		rd:    wire.NewReader(bufio.NewReaderSize(conn, wireReadBuf), cfg.MaxBody),
 		wr:    wire.NewWriter(conn),
 		out:   make(chan deliverTask, cfg.OutBuf),
 		ctl:   make(chan ctlFrame, cfg.CtlBuf),
@@ -881,6 +891,7 @@ func (s *session) dead() bool { return s.doomed.Load() }
 // ---- writer side (sole socket writer) ----
 
 func (s *session) writeLoop() {
+loop:
 	for {
 		select {
 		case <-s.quit:
@@ -891,10 +902,10 @@ func (s *session) writeLoop() {
 				select {
 				case cf := <-s.ctl:
 					if !cf.fatal {
-						continue
+						continue loop
 					}
 					_ = s.writeFrame(cf.op, cf.body)
-					s.conn.Close()
+					s.farewell()
 					return
 				default:
 					return
@@ -909,62 +920,123 @@ func (s *session) writeLoop() {
 				return
 			}
 			if cf.fatal {
-				s.conn.Close()
+				s.farewell()
 				return
 			}
 		case t := <-s.out:
 			if s.doomed.Load() {
 				continue // drain dead assignments; nothing further goes out
 			}
-			if t.kind == taskRaw {
-				// An ordered control frame (§2.13): its place is exactly
-				// here, between whatever was queued before and after.
-				if err := s.writeFrame(t.rawOp, t.rawBody); err != nil {
-					s.conn.Close()
-					return
+			// One flush per batch: everything the hub already queued rides in
+			// a single socket write. The hub enqueues fan-out at memory speed
+			// under its read lock; per-frame sends do not, and that arithmetic
+			// alone once reaped readers that were never slow — the queue
+			// filled between two drain syscalls. Folding keeps the drain
+			// paced with the enqueue rate. Order rides dequeue order, so
+			// per-sid seq (§2.6) and ordered raw frames (§2.13) keep their
+			// contracts.
+			s.batch = s.frameOf(s.batch[:0], t)
+			frames := 1
+		drain:
+			for frames < batchFrames && len(s.batch) < batchBytes {
+				select {
+				case t2 := <-s.out:
+					if s.doomed.Load() {
+						continue loop // dequeued while doomed: dropped, batch abandoned
+					}
+					s.batch = s.frameOf(s.batch, t2)
+					frames++
+				default:
+					break drain
 				}
-				continue
 			}
-			if t.kind == taskLane {
-				// Lane delivery: the seq is the LANE's, assigned at journal
-				// time and shared by every consumer; per-sid stamping does
-				// not apply and must not pretend it does.
-				body, err := wire.EncodeStreamDeliver(wire.StreamDeliver{
-					Subject: t.subject, Sid: t.sid, Seq: t.laneSeq,
-					Reply: t.reply, Payload: t.payload, HasReply: t.hasReply,
-				})
-				if err != nil {
-					s.log.Error("lane deliver encode failed", "session", s.id, "sid", t.sid, "err", err)
-					continue
-				}
-				if err := s.writeFrame(wire.OpStreamDeliver, body); err != nil {
-					s.conn.Close()
-					return
-				}
-				// Receipts told those consumers what to ack with; pongs and
-				// other control frames continue underneath on their own loop.
-				continue
-			}
-			if s.seq == nil {
-				s.seq = make(map[uint32]uint32)
-			}
-			s.seq[t.sid] = s.seq[t.sid] + 1
-			body, err := wire.EncodeDeliver(wire.Deliver{
-				Subject: t.subject, Sid: t.sid, Seq: s.seq[t.sid],
-				Reply: t.reply, Payload: t.payload, HasReply: t.hasReply,
-			})
-			if err != nil {
-				// The hub only enqueues valid sids and subjects, so this
-				// cannot happen; if it does, the writer is lying to itself.
-				s.log.Error("deliver encode failed", "session", s.id, "sid", t.sid, "err", err)
-				continue
-			}
-			if err := s.writeFrame(wire.OpDeliver, body); err != nil {
-				s.conn.Close()
+			if !s.flushBatch() {
 				return
 			}
 		}
 	}
+}
+
+// Batch-folding bounds: an upper limit per socket write. One flush of 256
+// frames or 256 KiB keeps syscall pacing with fan-out enqueues while a
+// 1 MiB payload still writes whole (a batch holds at least one frame).
+const (
+	batchFrames = 256
+	batchBytes  = 256 << 10
+)
+
+// frameOf folds one queued task into the writer batch: seq stamping (dual
+// to the old per-frame path), encode, and the header append. Writer
+// goroutine only — batch and seq are its private state.
+func (s *session) frameOf(dst []byte, t deliverTask) []byte {
+	switch t.kind {
+	case taskRaw:
+		// An ordered control frame (§2.13): folded in dequeue order, its
+		// place exactly between what was queued before and after.
+		return wire.AppendFrame(dst, t.rawOp, t.rawBody)
+	case taskLane:
+		// Lane delivery: the seq is the LANE's, assigned at journal time
+		// and shared by every consumer; per-sid stamping does not apply
+		// and must not pretend it does.
+		body, err := wire.EncodeStreamDeliver(wire.StreamDeliver{
+			Subject: t.subject, Sid: t.sid, Seq: t.laneSeq,
+			Reply: t.reply, Payload: t.payload, HasReply: t.hasReply,
+		})
+		if err != nil {
+			// The hub only enqueues valid deliver-shaped tasks; a failure
+			// means the writer was going to lie on the wire, so it skips
+			// this frame and keeps the rest of the batch.
+			s.log.Error("lane deliver encode failed", "session", s.id, "sid", t.sid, "err", err)
+			return dst
+		}
+		return wire.AppendFrame(dst, wire.OpStreamDeliver, body)
+	default: // taskSpur
+		if s.seq == nil {
+			s.seq = make(map[uint32]uint32)
+		}
+		s.seq[t.sid] = s.seq[t.sid] + 1
+		body, err := wire.EncodeDeliver(wire.Deliver{
+			Subject: t.subject, Sid: t.sid, Seq: s.seq[t.sid],
+			Reply: t.reply, Payload: t.payload, HasReply: t.hasReply,
+		})
+		if err != nil {
+			s.log.Error("deliver encode failed", "session", s.id, "sid", t.sid, "err", err)
+			return dst
+		}
+		return wire.AppendFrame(dst, wire.OpDeliver, body)
+	}
+}
+
+// flushBatch writes the folded batch as one send. True only when the
+// socket stayed trustworthy.
+func (s *session) flushBatch() bool {
+	_ = s.conn.SetWriteDeadline(time.Now().Add(s.cfg.WriteTimeout))
+	if _, err := s.conn.Write(s.batch); err != nil {
+		s.conn.Close()
+		return false
+	}
+	return true
+}
+
+// farewell is the kill's exit after the fatal frame flushed: half-close so
+// the FIN follows the last words, swallow whatever a rude peer had already
+// sent for one short beat, then hang up. Hard-closing the instant the frame
+// is queued can reset the connection before the OS carries the bytes out —
+// a killed session's message to its client would become "forcibly closed",
+// and the client learns nothing but the reset.
+func (s *session) farewell() {
+	if cw, ok := s.conn.(interface{ CloseWrite() error }); ok {
+		_ = cw.CloseWrite()
+	}
+	rd := wire.NewReader(s.conn, 0) // drain discards everything it reads
+	_ = s.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	for {
+		_, _, err := rd.ReadFrame()
+		if err != nil && err != wire.ErrSkipped {
+			break // EOF, timeout, or a broken wire: either way, the socket goes
+		}
+	}
+	_ = s.conn.Close()
 }
 
 // writeFrame stamps the deadline, logs failures once, and reports.

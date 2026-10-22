@@ -20,11 +20,12 @@ const Version = "0.5.0"
 func ServerLabel() string { return "switchyard/" + Version }
 
 // Config defaults exist so a plain NewServer(Config{Addr: ...}) is already a
-// sane yard: 1 MiB frames, 512-deep delivery queues, heartbeats that keep a
-// quiet client alive for Idle+Grace total silence.
+// sane yard: 1 MiB frames, 4096-deep delivery queues (room for bursty
+// publishers without reaping a reader that is merely between reads),
+// heartbeats that keep a quiet client alive for Idle+Grace total silence.
 const (
 	DefaultMaxBody      = 1 << 20 // 1 MiB, below the 4 MiB protocol ceiling
-	DefaultOutBuf       = 512
+	DefaultOutBuf       = 4096
 	DefaultCtlBuf       = 256 // receipts, pongs, refusals — never silently dropped
 	DefaultIdle         = 30 * time.Second
 	DefaultGrace        = 10 * time.Second
@@ -175,6 +176,11 @@ func (srv *Server) Run() error {
 		fails = 0
 		if tc, ok := conn.(*net.TCPConn); ok {
 			_ = tc.SetKeepAlive(true) // spurs live long; OS-level liveness helps
+			// The wire is many small frames: probe, pong, SUBSCRIBE, DELIVER.
+			// Nagle would strand each behind the peer's delayed ACK — plenty
+			// to fill a session's queue and reap a perfectly fast reader. Frames
+			// ship at once; per-frame write syscalls are the cost of honesty.
+			_ = tc.SetNoDelay(true)
 		}
 		go srv.serveConn(conn)
 	}
