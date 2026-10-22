@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>yardmaster — the yard's console</title>
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="mast">
+    <div class="mast__brand">
+      <span class="wl"><span class="wl__t">yardmaster</span></span>
+      <span class="mast__sub">/ the yard's console</span>
+    </div>
+    <div class="mast__gate" id="gate">
+      <span class="gateplate">target <b id="gate-target">—</b></span>
+      <span class="gateplate">tls <b id="gate-tls">—</b></span>
+      <span class="gateplate">token <b id="gate-token">—</b></span>
+      <span class="gateplate gateplate--live" id="gate-live">
+        <span class="dot" id="gate-dot"></span><b id="gate-word">watching</b>
+      </span>
+    </div>
+  </header>
+
+  <main class="wrp">
+    <!-- the yard at a glance -->
+    <section class="plate" id="yard">
+      <p class="kicker">the yard</p>
+      <dl class="yardgrid" id="yardgrid"></dl>
+      <p class="note" id="yard-note"></p>
+    </section>
+
+    <!-- every lane the journals rely on -->
+    <section class="plate" id="lanes-plate">
+      <p class="kicker">lanes</p>
+      <table class="lanes" id="lanes">
+        <thead>
+          <tr>
+            <th>lane</th><th class="num">seq</th><th class="num">journal</th>
+            <th class="num">keys</th><th class="num">consumers</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="lanes-body"></tbody>
+      </table>
+      <p class="note" id="lanes-note"></p>
+    </section>
+
+    <!-- one lane's drill-down -->
+    <section class="plate plate--drill" id="drill" hidden>
+      <p class="kicker">lane <b id="drill-lane"></b></p>
+      <dl class="yardgrid" id="drill-facts"></dl>
+      <table class="cons" id="cons">
+        <thead>
+          <tr><th>consumer</th><th class="num">floor</th>
+              <th class="num">pending</th><th>state</th></tr>
+        </thead>
+        <tbody id="cons-body"></tbody>
+      </table>
+      <p class="note" id="drill-note"></p>
+    </section>
+
+    <!-- the KV index, read-only -->
+    <section class="plate" id="kv">
+      <p class="kicker">key–value <span class="roi">read-only</span></p>
+      <div class="kvrow">
+        <select id="kv-lane" class="sel" aria-label="lane"></select>
+        <span class="mono kvsep">·</span>
+        <ul class="keys" id="keylist" aria-label="keys"></ul>
+        <p class="note" id="kv-note"></p>
+      </div>
+      <div class="value" id="value-plate" hidden>
+        <p class="kicker">key <b id="value-key"></b> <span class="roi" id="value-meta"></span></p>
+        <pre class="mono payload" id="value-body"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>read-only console · lanes §2.8–§2.17 · kv §2.18–§2.23 ·
+       console §2.24–§2.27 · a client like any other</p>
+  </footer>
+
+  <noscript>
+    <style>.wl__t{opacity:1}.wl::after{display:none!important}</style>
+    <p class="noscript-note">The console needs JavaScript — it is a
+    mirror, not the yard. Every read here is also available through
+    <span class="mono">spur yard</span>.</p>
+  </noscript>
+
+  <script src="/app.js"></script>
+</body>
+</html>
