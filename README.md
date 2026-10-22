@@ -118,11 +118,13 @@ protocol code.
 ```
 cmd/switchyard         the broker binary
 cmd/spur               the reference client CLI
+cmd/yardmaster         the yard's browser console: read-only companion
 cmd/yardstick          the bench suite: ping, fan-out, journaled rows/keys
 internal/wire          frame codec; the protocol's single source
 internal/subjects      the charter + matcher; wall of tests
 internal/server        accept loop, hub, sessions
 internal/client        reference client library
+internal/lensweb       the console's read-only bridge + embedded pages
 docs/PROTOCOL.md       the whole wire contract
 scripts/demo.ps1       reproducible bring-up
 scripts/bench.ps1      reproducible numbers (throwaway yard, full teardown)
@@ -179,6 +181,32 @@ hardware, by design: the receipt is a promise, not a hope.
 Numbers lie when their conditions are silent: the rod prints its yard
 identity, the counting reader refuses runs with dropped deliveries, and
 the bench script tears its throwaway yard down before it exits.
+
+## The Yardmaster console
+
+The yard speaks wire, not web pages — but an operator's legibility is
+worth as much as a consumer's receipts. `yardmaster` is the yard's
+browser: a second binary that dials the running yard as an ordinary
+client (same gate, same wrap, same dial vocabulary) and mirrors what
+the console family (§2.24–§2.27) and the KV reads (§2.19–§2.21) answer,
+in pages that ride inside the binary itself:
+
+```
+bin\yardmaster.exe                   console on 127.0.0.1:8060, yard on 127.0.0.1:4780
+bin\yardmaster.exe -addr YARD:4780 -tls -auth TOKEN -http OTHER:8060
+```
+
+The console owns no levers. Every panel is a read: the yard card
+(version, uptime, sessions, quarantine), the lane table (sequence,
+journal bytes, key count, consumers with their durable floors), and a
+key–value browser that can look but never set. A dark yard prints its
+refusal in the wire's own words instead of pretending; quarantine is
+reported, not cleared. The page polls while you are watching it and
+stops when you are not — a browser tab somebody left in the background
+asks the yard nothing.
+
+A console is a client too: adding it touches no op, no family, and no
+version — the yardmaster cannot write a single byte to the yard.
 
 ## Contributing
 
