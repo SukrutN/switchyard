@@ -26,6 +26,11 @@ func main() {
 		// Heartbeats are here for operators who care; defaults match code.
 		idle  = flag.Duration("idle", server.DefaultIdle, "silence before the yard pings a client")
 		grace = flag.Duration("grace", server.DefaultGrace, "silence after the ping before the yard closes")
+		// The gate and the wrap: a token demands AUTHENTICATE before HELLO;
+		// cert+key together wrap every session in TLS.
+		authToken = flag.String("auth", "", "demand this shared token before HELLO")
+		certFile  = flag.String("cert", "", "TLS certificate PEM; requires -key")
+		keyFile   = flag.String("key", "", "TLS private key PEM; requires -cert")
 	)
 	flag.Parse()
 
@@ -47,7 +52,12 @@ func main() {
 		AckWait: *ackWait,
 		Idle:    *idle,
 		Grace:   *grace,
-		Log:     log,
+		// The gate and the wrap: both live in one config so the yard's
+		// secrets are set once, at boot, nowhere else.
+		AuthToken: *authToken,
+		CertFile:  *certFile,
+		KeyFile:   *keyFile,
+		Log:       log,
 	}
 	srv, err := server.NewServer(cfg)
 	if err != nil {
@@ -62,11 +72,20 @@ func main() {
 	if *dataDir != "" {
 		lanes = *dataDir
 	}
+	auth := "off"
+	if *authToken != "" {
+		auth = "on"
+	}
+	wrap := "off"
+	if *certFile != "" || *keyFile != "" {
+		wrap = "on"
+	}
 	log.Info("yard open",
 		"addr", srv.Addr(),
 		"maxBody", cfg.MaxBody,
 		"lanes", lanes,
 		"idle", *idle, "grace", *grace,
+		"auth", auth, "tls", wrap,
 		"version", server.Version,
 	)
 

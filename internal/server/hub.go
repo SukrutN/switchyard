@@ -33,6 +33,7 @@ type Hub struct {
 	sessions map[uint64]*session
 	next     uint64
 	boot     time.Time // the console's uptime fact; set at construction
+	token    string    // the gate's shared token; empty means the yard is open (§2.28)
 
 	lanes *laneRegistry
 }

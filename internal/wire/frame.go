@@ -49,6 +49,11 @@ const (
 	// never as directories, so the length cap is the whole wire half; the
 	// charset half rides with the server like every charter's byte rule.
 	MaxKeyLen = 128
+	// MaxAuthToken caps the shared gate token (§2.28) — distinct from the
+	// subject-token caps above; this one is a secret, not a subject. Long
+	// enough to matter on a decent line, short enough to sit in one frame
+	// and be compared in constant time.
+	MaxAuthToken = 256
 )
 
 // Policy flags inside bodies. Bit 0 of the flag byte means "the optional
@@ -129,6 +134,14 @@ const (
 	OpLaneState Op = 0x1E // server→client: seq, journal bytes, keys, consumers
 )
 
+// Frame ops, auth pair (§2.28–§2.29). Fourth append: the gate's password.
+// One token, spoken before the handshake, checked in constant time; the
+// answer is an empty nod or a fatal NOT_ALLOWED (§6).
+const (
+	OpAuthenticate Op = 0x1F // client→server: speak the token at the door
+	OpAuthOK       Op = 0x20 // server→client: the gate nods; HELLO is free
+)
+
 // String makes operator-facing logs name operations instead of showing bytes.
 func (o Op) String() string {
 	switch o {
@@ -192,6 +205,10 @@ func (o Op) String() string {
 		return "LANE_INFO"
 	case OpLaneState:
 		return "LANE_STATE"
+	case OpAuthenticate:
+		return "AUTHENTICATE"
+	case OpAuthOK:
+		return "AUTH_OK"
 	default:
 		return fmt.Sprintf("OP(0x%02X)", byte(o))
 	}
@@ -436,3 +453,15 @@ type LaneState struct {
 	KeyCount     uint32
 	Consumers    []LaneConsumer
 }
+
+// Auth ops bodies (§2.28–§2.29): one shared token at the door.
+
+// Authenticate is the gate's password: sent before HELLO on a yard that
+// demands it, carried inside TLS when TLS is running (§1).
+type Authenticate struct {
+	Token string
+}
+
+// AuthOK is the gate's nod: empty, final, and the yard's speech — a client
+// that sends it is killed (§2).
+type AuthOK struct{}
