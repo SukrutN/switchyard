@@ -1,17 +1,18 @@
 # SWITCHYARD
 
 A Go message broker you can run from one binary and understand from one
-file. Durable streams and storage come after the core stays boring.
+file. Four op families on one wire; a journal receipt behind every
+durable claim.
 
 **The yard never lies.** What lands on the wire is exactly what every
 subscriber gets — in accepted order, with nothing invented between sender
 and receiver. That sentence is a test suite, not a slogan: `internal/server`
 enforces it frame by frame.
 
-Status: **v0.6.0** — pub/sub core, durable streams ("lanes"), KV over the
-same journal, the Yardmaster lens (console introspection), token auth
-with TLS sessions, and the yardstick bench suite. Protocol v1 throughout.
-Next on the shelf: the v1.0 polish.
+Status: **v1.0.0** — the yard ships. Protocol v1 is frozen (families
+append, numbers never move), the client library and spur speak the
+whole surface, and the bench rod prints honest numbers: pub/sub, durable
+streams ("lanes"), KV, the Yardmaster lens, token auth with TLS sessions.
 
 ## Quickstart
 
@@ -36,21 +37,39 @@ PowerShell. `spur` speaks the wire protocol through `internal/client` —
 the same library the test suite drives, so the CLI exercises exactly the
 lanes your products would.
 
+That first yard is in-memory — pure gossip, nothing on disk. Give the
+journal a home and the lane verbs light up; restart on the same
+`-data-dir` and a durable consumer replays exactly the rows the last
+session never acknowledged:
+
+```
+go run ./cmd/switchyard -data-dir ./data     # lanes stay off without a home
+go run ./cmd/spur stream create orders
+go run ./cmd/spur stream push orders orders.9001.paid 'box 42 left the dock'
+go run ./cmd/spur kv set orders box-42 'box 42'
+go run ./cmd/spur yard                       # the yardmaster's console view
+```
+
+A yard can also demand a token before HELLO (`-auth shh`) and wrap every
+accepted session in TLS (`-cert cert.pem -key key.pem`); spur follows the
+same vocabulary: `-auth`, `-tls`, and `-insecure` for lab certificates.
+
 Or, one command, fully scripted:
 
 ```
 ./scripts/demo.ps1        # PowerShell
 ```
 
-## What v0.1 has
+## What v1.0 has
 
-> Note: this section survived from v0.1 wording; the newer families
-> (lanes, KV, the console lens, the gate) are documented in
-> `docs/PROTOCOL.md` §2.8–§2.29 and their milestones in [CHANGELOG.md](CHANGELOG.md).
-
-- **Wire protocol v1** — 8-byte framed, big-endian, length-prefixed, with
-  named ops and stable error codes. Spec:
-  [`docs/PROTOCOL.md`](docs/PROTOCOL.md); its only definition lives in `internal/wire`.
+- **Wire protocol v1, frozen** — 8-byte framed, big-endian, length-
+  prefixed frames with named ops and stable error codes. Four families
+  were appended onto the pub/sub core (§2.1–§2.7) in numbered order:
+  durable streams (§2.8–§2.17), KV (§2.18–§2.23), the console lens
+  (§2.24–§2.27), and the auth pair (§2.28–§2.29). Numbers never move, so
+  a client written against §2 today keeps working against later yards.
+  Spec: [`docs/PROTOCOL.md`](docs/PROTOCOL.md); its only definition
+  lives in `internal/wire`.
 - **Subject charter** — dot-separated tokens, `*` matches exactly one
   token, `>` trails and captures the rest; wildcards are
   subscription-only. Spec §3; enforcement in `internal/subjects`.
@@ -58,11 +77,33 @@ Or, one command, fully scripted:
   bounded delivery queues, gapless per-subscription sequencing,
   heartbeat machinery that closes idle sessions politely and tells you
   exactly why. `internal/server`.
-- **spur** — `ping` / `pub` / `sub` reference CLI, `cmd/spur`.
-- **Tests over a real TCP fixture** — `internal/server/server_test.go`
-  and the client package run pub/sub lifecycles, oversized-body skips,
-  slow-consumer kills, idle timeouts, duplicate sids, and heartbeat
-  holds against genuine sockets.
+- **Durable streams ("lanes")** — journal-backed topics: a pushed row is
+  not acknowledged until its bytes are on disk, consumers remember
+  their position by name, and a fresh session gets exactly the rows the
+  last one never acknowledged — no invention, no loss. Spec
+  §2.8–§2.17; the service in `internal/server`.
+- **Key–value state** — the same journal wearing a lookup: set, get,
+  delete, keys, every write a receipt, every read from the same on-disk
+  story as the lanes. Spec §2.18–§2.23.
+- **The Yardmaster lens** — read-only console ops over the wire: the
+  yard's version, uptime, and live sessions; a lane's seq, consumers,
+  and consumer positions — all read from spur. Spec §2.24–§2.27.
+- **The gate and the wrap** — a token demanded before HELLO, TLS
+  wrapping every byte of every accepted session, and the rule that a
+  password on an unwrapped wire is not an operating mode. Spec
+  §2.28–§2.29 and §1.
+- **spur** — the reference CLI, the full verb set — ping / pub / sub /
+  stream / kv / yard — with one dial vocabulary (`-addr`, `-auth`,
+  `-tls`, `-insecure`) on every verb. `cmd/spur`.
+- **yardstick** — the measuring rod: ping latencies, sustained fan-out,
+  journaled rows and keys, guarded by a counting reader that refuses to
+  print dropped work. `cmd/yardstick`.
+- **Tests over real TCP fixtures** — per-family wire codec suites in
+  `internal/wire`; `internal/server` and `internal/client` suites run
+  pub/sub lifecycles, stream create/push/attach/replay/ack, KV round
+  trips, console reads, the auth gate, and TLS sessions riding the same
+  frames — all against genuine sockets, plus slow-consumer kills, idle
+  timeouts, oversized-body skips, duplicate sids, and heartbeat holds.
 
 The protocol rejects nonsense rather than guessing around it: frames that
 declare oversized-but-bounded bodies are skipped and answered, not fatal;
@@ -136,14 +177,6 @@ hardware, by design: the receipt is a promise, not a hope.
 Numbers lie when their conditions are silent: the rod prints its yard
 identity, the counting reader refuses runs with dropped deliveries, and
 the bench script tears its throwaway yard down before it exits.
-
-
-## M2 preview: the yard law continues
-
-Next milestone adds durable streams: a delivered-but-unstored message
-does not exist. Ack semantics will land WITH storage, because an ack
-before durability would be a claim the disk cannot honor — the same law
-from the other side.
 
 ## Contributing
 
