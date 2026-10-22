@@ -4,6 +4,44 @@ All notable changes to switchyard are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [SemVer](https://semver.org/) once we reach 1.0.
 
+## [0.6.0] — 2026-10-21
+
+Milestone M4, second half — yardstick, the yard's measuring rod: a
+counts-honest bench suite and the drain arithmetic it exposed. The
+README grows "the yard by the numbers".
+
+### Added
+- `cmd/yardstick`: reproducible numbers against one live yard, in the
+  yard's own words — `ping` (round-trip probes, min/p50/p95/max),
+  `pubsub` (fan-out through the delivery queues, printing what the yard
+  *sustains*), `journal` (lane rows and KV sets, receipt per row — the
+  fsync story told honestly). The counting reader holds every delivery
+  (sized buffer, `-n×-subs` guarded); a run that dropped or lost
+  anything refuses to print instead of flattering itself. Verb-first
+  dispatch like spur: `yardstick pubsub -n 500`.
+- `scripts/bench.ps1`: a throwaway yard on a temp dir, all scenarios,
+  full teardown — one command, one durable table for the README.
+
+### Changed
+- The bench exposed a pure-arithmetic lawbreaker: the hub enqueues
+  fan-out at memory speed while the session writer spent three syscalls
+  per frame and the reader two recvs. In that gap, a fire-and-forget
+  burst filled the queue and reaped readers that were never slow. Now:
+  one write per frame (header and body coalesced), the writer batch-
+  drains the queue (≤256 frames or 256 KiB per flush, order riding
+  dequeue order), sessions read through 32 KiB buffers on both ends,
+  TCP_NODELAY is explicit everywhere, and the default deliver-queue dam
+  widens 512 → 4096. The slow-consumer law is unchanged — when its
+  verdict lands, it means the paused reader, not plumbing overhead.
+- Fatal kills land their last words before the socket goes dark:
+  flush, half-close, one short drain beat, close. A hard close right
+  after the final send could reset the wire mid-frame on Windows; a
+  killed session's message to its client must arrive.
+- yardstick's pubsub publishes in waves gated by the counting reader
+  (≤2048 deliveries per wave): the wire gives fire-and-forget no
+  backpressure, so the scene restricts itself — the rate printed is the
+  sustained one, not a queue-cap lottery.
+
 ## [0.4.0] — 2026-10-21
 
 Milestone M3 — the Yardmaster console: the yard's state, spoken on the

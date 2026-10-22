@@ -10,6 +10,11 @@ import (
 // no read may exceed MaxBodyBytes+HeaderLen, so a hostile peer cannot make
 // the server allocate its memory budget through one giant header.
 //
+// Callers are expected to back the underlying stream with a buffered reader
+// (bufio ≥ 32 KiB) — unbuffered, each frame costs a header recv plus a body
+// recv, and frame-at-a-time syscalls cap ingest well below what fan-out
+// produces.
+//
 // The same instance is not goroutine-safe; the server owns it inside its
 // per-connection reader goroutine and that is the only caller.
 type Reader struct {
@@ -89,6 +94,11 @@ func alignUp(n uint32) uint32 {
 // keeps this package free of locking concerns (and mirrors the reader side).
 type Writer struct {
 	w io.Writer
+	// scratch is reused per frame (single-owner contract): header and body
+	// coalesce into ONE socket write. Two sends per frame doubled the
+	// syscall bill on every hop and turned arithmetic into "slow consumer"
+	// verdicts when fan-out bursts met a fast-but-not-that-fast drain.
+	scratch []byte
 }
 
 // NewWriter wraps the connection sink.
@@ -99,16 +109,25 @@ func (wrt *Writer) WriteFrame(op Op, body []byte) error {
 	if uint32(len(body)) > MaxBodyBytes {
 		return newOpErr(CodeTooLarge, false, "refusing to write %d-byte body", len(body))
 	}
-	hdr := [HeaderLen]byte{Magic1, Magic2, Version, byte(op)}
-	binary.BigEndian.PutUint32(hdr[4:8], uint32(len(body)))
-	if _, err := wrt.w.Write(hdr[:]); err != nil {
-		return err
+	n := HeaderLen + len(body)
+	if cap(wrt.scratch) < n {
+		wrt.scratch = make([]byte, 0, alignUp(uint32(n)))
 	}
-	if len(body) == 0 {
-		return nil
-	}
-	if _, err := wrt.w.Write(body); err != nil {
-		return err
-	}
-	return nil
+	b := wrt.scratch[:n]
+	b[0], b[1], b[2], b[3] = Magic1, Magic2, Version, byte(op)
+	binary.BigEndian.PutUint32(b[4:8], uint32(len(body)))
+	copy(b[HeaderLen:], body)
+	_, err := wrt.w.Write(b)
+	return err
+}
+
+// AppendFrame appends a complete frame to dst without touching the wire. The
+// session writer folds whole batches of queued deliveries through this into
+// one socket write; recipient-side Readers pull exact buffer sizes off the
+// byte stream, so coalescing here changes pacing, never framing.
+func AppendFrame(dst []byte, op Op, body []byte) []byte {
+	dst = append(dst, Magic1, Magic2, Version, byte(op))
+	dst = binary.BigEndian.AppendUint32(dst, uint32(len(body)))
+	dst = append(dst, body...)
+	return dst
 }
