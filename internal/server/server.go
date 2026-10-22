@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -46,7 +47,13 @@ type Config struct {
 	DataDir      string        // enables durable lanes when non-empty
 	AckWait      time.Duration // lane consumer default redelivery delay
 	NoSync       bool          // skip per-record fsync (tests/dev only; NOT durable)
-	Log          *slog.Logger
+	// The gate and the wrap: AuthToken demands AUTHENTICATE before HELLO
+	// (§2.28); CertFile+KeyFile together make every session ride TLS (§1).
+	// Half a keypair is a boot refusal, not a silent downgrade.
+	AuthToken string
+	CertFile  string
+	KeyFile   string
+	Log       *slog.Logger
 }
 
 func (c *Config) withDefaults() {
@@ -99,13 +106,14 @@ func NewServer(cfg Config) (*Server, error) {
 	if cfg.Addr == "" {
 		cfg.Addr = "127.0.0.1:4780"
 	}
-	ln, err := net.Listen("tcp", cfg.Addr)
+	ln, err := listenTLS(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", cfg.Addr, err)
 	}
 	syncEach := !cfg.NoSync
 	lanes := newLaneRegistry(cfg.DataDir, syncEach, cfg.Log)
 	hub := newHub(lanes)
+	hub.token = cfg.AuthToken
 	if lanes.enabled() {
 		if n := lanes.load(); n > 0 {
 			cfg.Log.Info("lanes recovered", "count", n, "dir", cfg.DataDir)
@@ -114,6 +122,28 @@ func NewServer(cfg Config) (*Server, error) {
 		cfg.Log.Info("lanes disabled", "reason", "no data dir configured")
 	}
 	return &Server{cfg: cfg, hub: hub, ln: ln, log: cfg.Log}, nil
+}
+
+// listenTLS binds the yard's listener: plain TCP unless both a certificate
+// and a key are configured, in which case every accepted session rides TLS
+// (§1) — same frames, same magic, same disciplines, a wrapped socket. One
+// half of a keypair is refused at boot: a half-open door is a lie about
+// being secured that only a clean startup error prevents.
+func listenTLS(cfg Config) (net.Listener, error) {
+	if cfg.CertFile == "" && cfg.KeyFile == "" {
+		return net.Listen("tcp", cfg.Addr)
+	}
+	if cfg.CertFile == "" || cfg.KeyFile == "" {
+		return nil, errors.New("tls needs both cert and key; one alone is refused at boot")
+	}
+	cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load tls keypair: %w", err)
+	}
+	return tls.Listen("tcp", cfg.Addr, &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	})
 }
 
 // Addr reports the bound spec — the tests use an ephemeral port and need the
