@@ -1,4 +1,4 @@
-# demo.ps1 — reproducible bring-up for switchyard v0.1.
+# demo.ps1 — reproducible bring-up for switchyard.
 # Builds the binaries, starts a yard on 127.0.0.1:4780, drives a real
 # subscribe/publish exchange through spur, and cleans up.
 # Usage:  .\scripts\demo.ps1   (from the repo root or anywhere)
