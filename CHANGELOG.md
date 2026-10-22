@@ -2,7 +2,28 @@
 
 All notable changes to switchyard are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and versions follow [SemVer](https://semver.org/) once we reach 1.0.
+and versions follow [SemVer](https://semver.org/).
+
+## [1.0.0] — 2026-10-21
+
+The yard ships. No new ops and no engine changes — this is the promise
+release: the protocol surface is frozen (appends only, as the law has
+said since the first family grew), the client library and spur speak
+all of it, and the docs claim the whole feature list for the first
+time: pub/sub, durable streams ("lanes"), KV, the Yardmaster lens,
+token auth with TLS sessions, and the yardstick rod.
+
+### Added
+- README "What v1.0 has": the complete claim list, each feature tied to
+  its spec section — replacing the v0.1-era inventory that had survived
+  on courtesy long past its truth.
+- `docs/PROTOCOL.md` states the v1.0 pledge: op numbers never move,
+  families append, error codes stay put, a client written against the
+  file wires up unchanged against later 1.x yards.
+
+### Changed
+- `switchyard` reports version **1.0.0** (the WELCOME label and the
+  Yardmaster console).
 
 ## [0.6.0] — 2026-10-21
 
