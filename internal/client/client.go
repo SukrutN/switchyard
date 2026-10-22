@@ -12,6 +12,7 @@
 package client
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -81,6 +82,7 @@ func (o *Options) withDefaults() {
 // the wire itself is single-connection, single-reader, single-writer.
 type Client struct {
 	conn net.Conn
+	br   *bufio.Reader // buffered view of conn; every read phase shares it
 	wr   *wire.Writer
 	wmu  sync.Mutex // serializes writes: HELLO/PUBLISH/SUB/UNSUB/PING/PONG/BYE
 
@@ -135,6 +137,9 @@ func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 		return nil, fmt.Errorf("dial %s: %w", addr, err)
 	}
 	_ = conn.SetDeadline(time.Now().Add(o.Timeout))
+	if tc, ok := conn.(*net.TCPConn); ok {
+		_ = tc.SetNoDelay(true) // same law as the yard: frames ship at once (§ on server side)
+	}
 	if o.TLS {
 		wrapped, err := tlsWrap(ctx, conn, addr, o.SkipVerify)
 		if err != nil {
@@ -143,8 +148,13 @@ func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 		}
 		conn = wrapped
 	}
+	// One buffered stream for the whole session's reads — knock, handshake,
+	// and readLoop drink from the same buffer, so a phase boundary must not
+	// strand bytes. Per-frame syscalls pace ingest; buffered fills do not.
+	br := bufio.NewReaderSize(conn, 1<<15)
 	c := &Client{
 		conn:       conn,
+		br:         br,
 		wr:         wire.NewWriter(conn),
 		deliveries: make(chan Delivery, o.DeliverBuf),
 		errs:       make(chan ClientError, 16),
@@ -153,11 +163,11 @@ func Dial(ctx context.Context, addr string, o Options) (*Client, error) {
 		keepalive:  o.Keepalive,
 		done:       make(chan struct{}),
 	}
-	if err := c.knock(o); err != nil {
+	if err := c.knock(o, br); err != nil {
 		conn.Close()
 		return nil, err
 	}
-	if err := c.hello(o); err != nil {
+	if err := c.hello(o, br); err != nil {
 		conn.Close()
 		return nil, err
 	}
@@ -187,7 +197,7 @@ func tlsWrap(ctx context.Context, plain net.Conn, addr string, skipVerify bool) 
 // knock speaks the shared token at the door (§2.28) and awaits the nod,
 // all under dial's deadline. A gate that says no ends the dial with the
 // refusal verbatim — a ClientError, so spur prints the yard's own words.
-func (c *Client) knock(o Options) error {
+func (c *Client) knock(o Options, br *bufio.Reader) error {
 	if o.Token == "" {
 		return nil
 	}
@@ -198,7 +208,7 @@ func (c *Client) knock(o Options) error {
 	if err := c.wr.WriteFrame(wire.OpAuthenticate, body); err != nil {
 		return fmt.Errorf("send knock: %w", err)
 	}
-	rd := wire.NewReader(c.conn, wire.MaxBodyBytes)
+	rd := wire.NewReader(br, wire.MaxBodyBytes)
 	op, reply, rerr := rd.ReadFrame()
 	if rerr != nil {
 		return fmt.Errorf("await gate: %w", rerr)
@@ -219,7 +229,7 @@ func (c *Client) knock(o Options) error {
 	return nil
 }
 
-func (c *Client) hello(o Options) error {
+func (c *Client) hello(o Options, br *bufio.Reader) error {
 	body, err := wire.EncodeHello(wire.Hello{Name: o.Name, Label: o.Label})
 	if err != nil {
 		return fmt.Errorf("hello: %w", err)
@@ -227,7 +237,7 @@ func (c *Client) hello(o Options) error {
 	if err := c.wr.WriteFrame(wire.OpHello, body); err != nil {
 		return fmt.Errorf("send hello: %w", err)
 	}
-	rd := wire.NewReader(c.conn, wire.MaxBodyBytes)
+	rd := wire.NewReader(br, wire.MaxBodyBytes)
 	op, body2, rerr := rd.ReadFrame()
 	if rerr != nil {
 		return fmt.Errorf("await welcome: %w", rerr)
@@ -339,7 +349,7 @@ func (c *Client) write(op wire.Op, body []byte) error {
 // windows of total silence mean the yard is gone.
 func (c *Client) readLoop() {
 	defer c.doneOnce.Do(func() { close(c.done) })
-	rd := wire.NewReader(c.conn, c.welcome.MaxBody)
+	rd := wire.NewReader(c.br, c.welcome.MaxBody)
 	for {
 		// Keepalive deadline: the yard pings at its Idle (default 30s); the
 		// default survives one full silent cycle plus jitter. Tests shorten
