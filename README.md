@@ -120,11 +120,13 @@ cmd/switchyard         the broker binary
 cmd/spur               the reference client CLI
 cmd/yardmaster         the yard's browser console: read-only companion
 cmd/yardstick          the bench suite: ping, fan-out, journaled rows/keys
+cmd/linehost           hosts a sorting line: lane work -> Modbus block -> verdicts
 internal/wire          frame codec; the protocol's single source
 internal/subjects      the charter + matcher; wall of tests
 internal/server        accept loop, hub, sessions
 internal/client        reference client library
 internal/lensweb       the console's read-only bridge + embedded pages
+internal/linehost      the linehost bridge: minimal Modbus TCP client + talker
 docs/PROTOCOL.md       the whole wire contract
 scripts/demo.ps1       reproducible bring-up
 scripts/bench.ps1      reproducible numbers (throwaway yard, full teardown)
@@ -207,6 +209,49 @@ asks the yard nothing.
 
 A console is a client too: adding it touches no op, no family, and no
 version — the yardmaster cannot write a single byte to the yard.
+
+## The linehost — hosting a line
+
+A sorting line's supervisor is a switchyard client. `linehost` hosts the
+fluxline line (see [SukrutN/fluxline-plc](https://github.com/SukrutN/fluxline-plc)):
+it consumes release work from a durable lane, speaks it to the line's
+Modbus TCP register surface — the host command block — and journals every
+verdict the floor hands back to the same lane:
+
+```
+bin\linehost.exe                    yard 127.0.0.1:4780, line 127.0.0.1:1502
+bin\linehost.exe -addr YARD:4780 -line LINE:1502 -lane fluxline -hb 500ms
+```
+
+Work items are JSON on the lane's release subject:
+
+```
+{"id":"box-42","gate":2,"class":0}    release-override toward gate 2
+{"id":"box-43","law":true}            release-per-law, the floor picks
+```
+
+Verdicts are receipts on the verdict subject — accepted, vetoed, refused,
+expired — carrying the gate the piece actually took and the class the
+floor measured:
+
+```
+{"id":"box-43","seq":2,"state":"vetoed","gate":3,"class":3,"latency_ms":21430}
+```
+
+The rules it lives by: **one release in flight at a time** (the floor
+refuses a second command while one is armed, so the rest wait in the
+lane); a **heartbeat in every cycle**, carried inside the command frame
+itself so an in-flight release never starves the watchdog; verdicts
+journal **before** the lane ack, so a crash replays the work instead of
+losing the receipt — at-least-once, with sweeper redeliveries recognized,
+not re-run; and a command that never gets its receipt is journaled
+`expired` once its patience runs out. Giving up honestly, never
+pretending: the host can only request, the floor's law has the last word.
+
+`internal/linehost` carries the bridge: a dependency-free Modbus TCP
+client (MBAP plus FC03/FC06/FC16 — nothing else the host needs) tested
+byte-precise against a scripted slave, and a talker suite that runs
+against a real yard.
 
 ## Contributing
 

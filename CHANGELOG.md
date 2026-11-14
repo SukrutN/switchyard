@@ -7,6 +7,19 @@ and versions follow [SemVer](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `cmd/linehost`, the line's host: a companion binary that consumes
+  release work from a durable lane (`{"id","gate","class","law"}` JSON on
+  `LANE.release`) and speaks it to a sorting line's Modbus register
+  surface — fluxline's host command block (docs/06 in fluxline-plc) —
+  one release in flight at a time, the heartbeat carried inside every
+  command frame so an in-flight release never starves the watchdog. The
+  floor's verdict — accepted, vetoed, refused, expired — journals back
+  to the lane as a receipt **before** the work is acked: at-least-once
+  with redeliveries recognized, and a silent floor is journaled
+  `expired` after its patience rather than invented. `internal/linehost`
+  carries the bridge: a dependency-free Modbus TCP client (MBAP +
+  FC03/FC06/FC16) tested byte-precise against a scripted slave, and a
+  talker suite run against a real yard.
 - `cmd/yardmaster`, the yard's browser console: a read-only companion
   binary that dials the running yard as an ordinary client (same gate,
   same wrap, same dial vocabulary) and serves, embedded in itself, a
