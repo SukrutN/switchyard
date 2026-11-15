@@ -1,0 +1,16 @@
+# node / next
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# house: no editor state, no OS litter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# environment
+.env*.local
+serve-root/

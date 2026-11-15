@@ -1,0 +1,23 @@
+{
+  "name": "switchyard-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The showcase website for switchyard — the yard in the operator's own voice.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0"
+  }
+}
