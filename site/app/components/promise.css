@@ -1,0 +1,122 @@
+/* ============================================================
+   promise — the freezer receipt: the op-family rows + the pledge.
+   ============================================================ */
+
+.promise {
+  border-top: 1px solid var(--line);
+}
+
+.promise__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: start;
+}
+
+.promise__signal {
+  color: var(--signal-ink);
+}
+
+.promise__title {
+  margin-top: 0.9rem;
+  font-size: var(--step-3);
+}
+
+.promise__body {
+  margin-top: 1.2rem;
+  max-width: 30em;
+}
+
+.promise__body--mut {
+  color: var(--ink-70);
+}
+
+.promise__chip {
+  font-size: 0.85em;
+  background: var(--paper-raise);
+  border: 1px solid var(--line);
+  padding: 0.08em 0.4em;
+}
+
+.promise__cta {
+  margin-top: 1.7rem;
+}
+
+/* the rows: hairlines only, no box, the same rule grammar as the laws */
+
+.promise__table {
+  position: relative;
+}
+
+.promise__thead,
+.promise__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.25fr);
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.promise__thead {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-50);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.promise__thead span:nth-child(2),
+.promise__ops {
+  text-align: right;
+}
+
+.promise__row {
+  padding-block: 0.85rem;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.25s var(--ease);
+}
+
+.promise__row:hover {
+  background: color-mix(in srgb, var(--signal) 7%, transparent);
+}
+
+.promise__name {
+  font-weight: 550;
+}
+
+.promise__ops {
+  font-size: 0.82rem;
+  color: var(--ink-70);
+}
+
+.promise__gives {
+  font-size: 0.88rem;
+  color: var(--ink-70);
+}
+
+.promise__note {
+  padding: 0.9rem 0 0.6rem;
+  font-size: 0.88rem;
+  color: var(--ink-70);
+}
+
+.promise__note em {
+  color: var(--ink);
+}
+
+@media (max-width: 960px) {
+  .promise__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* the ops range is the one column a small screen can spare */
+  .promise__thead span:nth-child(2),
+  .promise__ops {
+    display: none;
+  }
+
+  .promise__thead,
+  .promise__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+}
