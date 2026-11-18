@@ -42,6 +42,14 @@ export default function SiteHeader({
                 <span>FOREMAN</span>
                 <Arrow />
               </a>
+              <a className="site-header__link wl-link" href="/gangway/">
+                <span>GANGWAY</span>
+                <Arrow />
+              </a>
+              <a className="site-header__link wl-link" href="/dcsim/">
+                <span>DCSIM</span>
+                <Arrow />
+              </a>
             </>
           )}
           <a
