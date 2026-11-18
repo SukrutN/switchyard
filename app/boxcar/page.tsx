@@ -32,7 +32,7 @@ import {
 import bench from "@/engine/boxcar-engine/bench/results.json";
 
 export const metadata: Metadata = {
-  title: "boxcar · unit-04 — the pack-out solver",
+  title: "boxcar · unit-04, the pack-out solver",
   description:
     "Cartonization from the switchyard family: carton selection, 3D placements, and a validation report where no-floating is a test, not a feature. Fixed-point arithmetic, zero dependencies, byte-stable.",
 };
@@ -92,7 +92,7 @@ function cam(parts: string[], pad = 9): string {
   return `${(minX - pad).toFixed(2)} ${(minY - pad).toFixed(2)} ${(width + pad * 2).toFixed(2)} ${(height + pad * 2).toFixed(2)}`;
 }
 
-/* fix 01 — the naive result floats; the admitted one rests */
+/* fix 01, the naive result floats; the admitted one rests */
 const F1_GHOST = boxFaces({
   unit: { sku: "FLOATS" },
   pos: { x: 3000, y: 300, z: 1700 },
@@ -126,7 +126,7 @@ const F1_VIEW = cam([
   F1_HEAD,
 ]);
 
-/* fix 02 — weight flows down the support chain */
+/* fix 02, weight flows down the support chain */
 const F2_BOTTOM = boxFaces({
   unit: { sku: "CART-500" },
   pos: { x: 300, y: 300, z: 0 },
@@ -160,7 +160,7 @@ const F2_VIEW = cam([
   F2_HEAD,
 ]);
 
-/* fix 03 — a lid mostly off the ridge is refused at the gate */
+/* fix 03, a lid mostly off the ridge is refused at the gate */
 const F3_BASE = boxFaces({
   unit: { sku: "base" },
   pos: { x: 200, y: 200, z: 0 },
@@ -199,7 +199,7 @@ const F3_VIEW = cam(
 
 /* the share this drawn geometry really has: overlap / lid footprint.
    Computed from the same cells the lid was drawn with, then graded
-   against STABILITY_RATIO in the caption — refused either way. */
+   against STABILITY_RATIO in the caption, refused either way. */
 const F3_CELLS = { base: [2, 2, 26, 20], lid: [20, 4, 22, 16] };
 const f3Share = (() => {
   const overlap = Math.min(
@@ -223,7 +223,7 @@ const libTick = CARTON_LIBRARY_RAW.map((c) => ({
 const ENGINE_README =
   "https://github.com/SukrutN/switchyard-site/blob/main/engine/boxcar-engine/README.md";
 
-/* the selector's law, quoted with the constants' own values —
+/* the selector's law, quoted with the constants' own values . 
    change src/constants.ts and the sheet repoints itself. */
 const LAWSHEET = `/* the run score, src/constants.ts */
 F = util + ${MARGIN_WEIGHT} × margin − ${CARTON_PENALTY}
@@ -236,7 +236,7 @@ STABILITY_RATIO = ${STABILITY_RATIO}  /* share of its own
                           footprint that must touch */
 
 merge: standard ↔ fragile co-pack
-       hazard rides alone — the table is the law`;
+       hazard rides alone, the table is the law`;
 
 export default function BoxcarPage() {
   return (
@@ -269,7 +269,7 @@ export default function BoxcarPage() {
 
             <div className="hero__grid">
               <div>
-                <p className="eyebrow">boxcar — the pack-out family</p>
+                <p className="eyebrow">boxcar, the pack-out family</p>
                 <h1 className="display hero__claim">
                   <span className="hero__line">
                     <span style={{ "--d": "0ms" } as React.CSSProperties}>
@@ -290,7 +290,7 @@ export default function BoxcarPage() {
 
                 <p className="lede hero__lede">
                   An order sheet and a five-carton library become placements:
-                  gravity-settled, load-rated, stability-checked — and stamped
+                  gravity-settled, load-rated, stability-checked, and stamped
                   with a validation report where no-floating is a test, not a
                   feature. Same order bytes in, same solution bytes out.
                 </p>
@@ -329,7 +329,7 @@ export default function BoxcarPage() {
               <div className="bc-hero__rig">
                 <HeroCarton carton={HERO_CARTON} />
                 <p className="bc-hero__rig-note mono">
-                  drawn from fixtures/cartons.ts — the library the engine
+                  drawn from fixtures/cartons.ts, the library the engine
                   packs into
                 </p>
               </div>
@@ -378,8 +378,8 @@ export default function BoxcarPage() {
             <p className="lede bc__lede" data-fill>
               Hand-rolled packers fail three exact ways: boxes float in
               mid-air, supports carry past their rating, and lids rest on
-              ridges they barely touch. boxcar closes each one behind an
-              admission gate — and a report line, so you can grade the gate.
+              ridges they barely touch, boxcar closes each one behind an
+              admission gate, and a report line, so you can grade the gate.
             </p>
 
             <div className="bc__fix-grid">
@@ -435,7 +435,7 @@ export default function BoxcarPage() {
                   </p>
                   <p className="bc__fix-body" data-fill>
                     A placement needs at least {STABILITY_RATIO} of its own
-                    footprint really touching floor or support —{" "}
+                    footprint really touching floor or support . {" "}
                     <span className="mono">STABILITY_RATIO</span> in the
                     constants file. A lid overhanging a ridge is refused on
                     admission, not forgiven at the validator.
@@ -504,7 +504,7 @@ export default function BoxcarPage() {
             </table>
             <p className="bc__note mono">
               the same figures are pinned in fixtures/expected.ts and held to
-              ±0.006 by tests/characterization.test.ts — the table above is
+              ±0.006 by tests/characterization.test.ts, the table above is
               this build's own pack(·) call, not a transcription.
             </p>
           </div>
@@ -532,7 +532,7 @@ export default function BoxcarPage() {
                 </span>
               </h2>
               <p className="lede bc__lede" data-fill>
-                Every template in the library gets a saturated run — repeat
+                Every template in the library gets a saturated run, repeat
                 passes in canonical bigger-first order until nothing
                 converts. The score is cube utilization plus a
                 weight-margin term, minus a small penalty per opened carton:
@@ -542,7 +542,7 @@ export default function BoxcarPage() {
               <p className="bc__law-note" data-fill>
                 Two rules sit above the score. The orphan veto: a run that
                 strands a unit no template could ever carry loses to any run
-                that completes the order. And an empty run never wins —
+                that completes the order. And an empty run never wins . 
                 without that tripwire, a phantom weight margin out of an
                 empty box would beat honest work, so the packer reports the
                 stranding under <span className="mono">unfilled</span> and
@@ -604,7 +604,7 @@ export default function BoxcarPage() {
                       {r.deterministic ? (
                         <span className="bc__ok">✓</span>
                       ) : (
-                        "—"
+                        ". "
                       )}
                     </td>
                   </tr>
@@ -635,7 +635,7 @@ export default function BoxcarPage() {
             <p className="lede bc__lede" data-fill>
               The family sheet drew the scope fences before the first line
               of solver code. They are what keep one unit small enough to
-              read in an afternoon — and honest about what it is.
+              read in an afternoon, and honest about what it is.
             </p>
 
             <div className="bc__fences">
@@ -645,7 +645,7 @@ export default function BoxcarPage() {
                   <h3 className="bc__fence-name">No label printing</h3>
                   <p className="bc__fence-body">
                     The waybill family carries labels; boxcar's decision
-                    travels to it as the ship-solution JSON — cartons, boxes,
+                    travels to it as the ship-solution JSON, cartons, boxes,
                     supports, margins. One job per unit.
                   </p>
                 </div>
@@ -685,8 +685,8 @@ export default function BoxcarPage() {
                 <div>
                   <h3 className="bc__fence-name">Zero runtime dependencies</h3>
                   <p className="bc__fence-body">
-                    Fixed-point arithmetic end to end — 0.01&nbsp;cm ticks,
-                    integer grams — so floats never drift inside the solver
+                    Fixed-point arithmetic end to end. 0.01&nbsp;cm ticks,
+                    integer grams, so floats never drift inside the solver
                     and the site ships the same solution bytes the tests
                     grade.{" "}
                     <a
@@ -703,10 +703,10 @@ export default function BoxcarPage() {
             </div>
 
             <div className="bc__git">
-              <p className="bc__git-head">lineage — sources read, credited</p>
+              <p className="bc__git-head">lineage, sources read, credited</p>
               <div className="bc__git-row">
                 <span className="mono">enzoruiz/3dbinpacking · py3dbp (MIT)</span>{" "}
-                — the anchor-point loop this engine descends from;{" "}
+               , the anchor-point loop this engine descends from;{" "}
                 <a
                   href="https://github.com/enzoruiz/3dbinpacking"
                   target="_blank"
@@ -717,7 +717,7 @@ export default function BoxcarPage() {
                 . Its plain results float; ours can't.
               </div>
               <div className="bc__git-row">
-                <span className="mono">jerry800416/3D-bin-packing (MIT)</span> — the
+                <span className="mono">jerry800416/3D-bin-packing (MIT)</span>, the
                 gravity, load-bearing and stability fixes, retold in
                 TypeScript:{" "}
                 <a
@@ -731,7 +731,7 @@ export default function BoxcarPage() {
               </div>
               <div className="bc__git-row">
                 <span className="mono">skjolber/3d-bin-container-packing (Apache-2.0)</span>{" "}
-                — reasons-on-results engineering culture, borrowed to build
+               , reasons-on-results engineering culture, borrowed to build
                 the validation bench:{" "}
                 <a
                   href="http://skjolber.github.io/3d-bin-container-packing/"
@@ -746,7 +746,7 @@ export default function BoxcarPage() {
                 <span className="mono">
                   Martello, Pisinger & Vigo (2000), Operations Research 48(2)
                 </span>{" "}
-                — the exact lineage a serious heuristic nods to:{" "}
+               , the exact lineage a serious heuristic nods to:{" "}
                 <a
                   href="https://doi.org/10.1287/opre.48.2.256.12363"
                   target="_blank"
@@ -766,7 +766,7 @@ export default function BoxcarPage() {
 }
 
 /* ============================================================
-   the three glyph scenes — drawn, not decoratted: geometry the
+   the three glyph scenes, drawn, not decoratted: geometry the
    gate really computes, projected by the same iso.ts the pack
    hall shares.
    ============================================================ */

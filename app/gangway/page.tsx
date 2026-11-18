@@ -1,4 +1,4 @@
-/* gangway — unit 10. The page is the engine's reading of Harbor & Lane
+/* gangway, unit 10. The page is the engine's reading of Harbor & Lane
    day 07. Every figure is a call into engine/gangway-engine. */
 
 import type { Metadata } from "next"
@@ -11,7 +11,7 @@ import "./components/gangway.css"
 import { HARBOR, loadCurve, run } from "@/engine/gangway-engine/index.ts"
 
 export const metadata: Metadata = {
-  title: "gangway · unit-10 — the dock day",
+  title: "gangway · unit-10, the dock day",
   description:
     "Dock appointments, a capped utilization curve, and a door-fitness assignment against Harbor & Lane's aisle mouths. Fictional carriers, one seeded day.",
 }
@@ -59,12 +59,12 @@ export default function GangwayPage() {
 
             <div className="hero__grid">
               <div>
-                <p className="eyebrow">gangway — the dock family</p>
-                <h1 className="display hero__claim">The door can refuse. The gap cannot be bought.</h1>
+                <p className="eyebrow">gangway, the dock family</p>
+                <h1 className="display hero__claim">Full doors turn trailers away.</h1>
                 <p className="lede hero__lede">
-                  Twenty fictional carriers ask for a door on Harbor &amp; Lane day 07. Slots come from
-                  doors times hours, divided by handling. Booked minutes stop at 85 percent. A trailer
-                  that misses its window waits. It does not open a minute the shift did not have.
+                  Twenty made-up carriers ask for a door on Harbor &amp; Lane, day 07. A slot is
+                  doors times hours, divided by how long that trailer takes. Booked time stops at 85
+                  percent. A trailer that misses its window waits. The shift does not get longer to fit it.
                 </p>
               </div>
               <div className="gw-stats" aria-label="the dock day in six numbers">
@@ -87,7 +87,7 @@ export default function GangwayPage() {
               <p className="lede">
                 One copy of the day books {reading.bookedMin} of {reading.availableMin} door-minutes
                 ({(reading.utilization * 100).toFixed(2)}%). Two copies and three copies both stop at{" "}
-                {curve[1].bookedMin} minutes — under the cap of {reading.capMin}, and under the 85
+                {curve[1].bookedMin} minutes, under the cap of {reading.capMin}, and under the 85
                 percent line. Class slots if the day were all one kind: parcel {reading.classSlots.parcel},
                 dry {reading.classSlots.dry}, cold {reading.classSlots.cold}.
               </p>

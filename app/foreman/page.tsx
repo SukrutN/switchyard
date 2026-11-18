@@ -1,4 +1,4 @@
-// foreman — unit 06. The page is the engine's output: the ledger, the
+// foreman, unit 06. The page is the engine's output: the ledger, the
 // staged forecast, the casing, the realization. Everything below is
 // computed at build from the same deterministic fixtures the tests lock.
 import type { Metadata } from "next";
@@ -28,14 +28,14 @@ import {
 import type { BandId } from "@/engine/foreman-engine/index.ts";
 
 export const metadata: Metadata = {
-  title: "foreman · unit-06 — the labor plan",
+  title: "foreman · unit-06, the labor plan",
   description:
     "Zone-workload forecast and a shift/skill labor plan, priced by northspan's standards. 52 weeks of ledger, a 12-week spring surge, a seeded realization, and MAPE by zone locked. Zero dependencies, byte-stable.",
 };
 
 /* ============================================================
    build-time foreman: the page's whole ledger. Every figure the
-   page prints is a call into engine/foreman-engine — the same
+   page prints is a call into engine/foreman-engine, the same
    deterministic pipeline fixtures/expected.ts locks, re-run at
    build so the site can never drift from the engine.
    ============================================================ */
@@ -144,7 +144,7 @@ const n0 = (x: number) => x.toLocaleString("en-US", { maximumFractionDigits: 0 }
 const n1 = (x: number) => x.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /* ============================================================
-   figures — inline svg, printed from the computed data above.
+   figures, inline svg, printed from the computed data above.
    ============================================================ */
 
 /* ---------- fig 1: the ledger, the fit, the surge ---------- */
@@ -339,7 +339,7 @@ export default function ForemanPage() {
 
             <div className="hero__grid">
               <div>
-                <p className="eyebrow">foreman — the forecast &amp; labor family</p>
+                <p className="eyebrow">foreman, the forecast &amp; labor family</p>
                 <h1 className="display hero__claim">
                   The foreman plans the week before it starts.
                 </h1>
@@ -400,13 +400,13 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">01</span> — the ledger, the fit
+                <span className="eyebrow--signal">01</span>, the ledger, the fit
               </p>
               <h2 className="display fm__title">
                 The year the engine read, and the quarter it wrote.
               </h2>
               <p className="lede fm__lede">
-                Bars are the ledger — {HISTORY.length} weeks of tickets, seeded,
+                Bars are the ledger. {HISTORY.length} weeks of tickets, seeded,
                 with the opener&apos;s tent sale sitting in week {ledgerEvents[0].week}. The dotted line is
                 the staged model walked back over the same weeks:{' '}
                 <span className="mono">level × season × event</span>. The solid line is the
@@ -475,13 +475,13 @@ export default function ForemanPage() {
               <figcaption className="fm__caption">
                 <span className="fm__caption-k">FIG 1</span> the ledger, the model
                 walked over it, and the twelve weeks the foreman signs its name to.
-                Season shape and events are fixture data — the only thing fitted is the line.
+                Season shape and events are fixture data, the only thing fitted is the line.
               </figcaption>
             </div>
 
             <div className="fm__stages">
               {[
-                { n: "01", name: "calendar lift", note: "season + events off the raw ledger — a tent sale is not a trend" },
+                { n: "01", name: "calendar lift", note: "season + events off the raw ledger, a tent sale is not a trend" },
                 { n: "02", name: "smoothing", note: `exponential, α ${FORECAST_CONFIG.alpha.toFixed(2)}, on the plain week's demand` },
                 { n: "03", name: "trend", note: `OLS level line: ${n0(fc.trend.base)} + ${n1(fc.trend.slopePerWeek)} lines/wk` },
                 { n: "04", name: "calendar back", note: "the horizon re-dresses each week in its own season and events" },
@@ -504,18 +504,18 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">02</span> — forecast vs the week that happened
+                <span className="eyebrow--signal">02</span>, forecast vs the week that happened
               </p>
               <h2 className="display fm__title">
                 The forecast, then the seeded week, scored against it.
               </h2>
               <p className="lede fm__lede">
-                Lines are the plan&apos;s forecast. Dots are the realization —
+                Lines are the plan&apos;s forecast. Dots are the realization . 
                 the same forecast hit by a seeded jolt of ±
                 {(BRAMBLE.actualNoiseAmplitude * 100).toFixed(1)}% per
                 zone-week, drawn in a frozen order. The realization is a fixture:{" "}
                 seed {BRAMBLE.actualSeed}, same tickets on any machine. Error
-                travels with the volume, never with the minutes — the standards
+                travels with the volume, never with the minutes, the standards
                 stay pinned while the tickets move.
               </p>
             </Reveal>
@@ -535,7 +535,7 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">03</span> — the plan as heat
+                <span className="eyebrow--signal">03</span>, the plan as heat
               </p>
               <h2 className="display fm__title">
                 Paid hours by shift × run, week by week.
@@ -606,13 +606,13 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">04</span> — the variance waterfalls
+                <span className="eyebrow--signal">04</span>, the variance waterfalls
               </p>
               <h2 className="display fm__title">
                 The noise is the whole bridge.
               </h2>
               <p className="lede fm__lede">
-                Forecast hours, the seeded week&apos;s noise, actual hours —
+                Forecast hours, the seeded week&apos;s noise, actual hours . 
                 consumed through the same northspan standards both sides. The
                 whole gap is the noise:{" "}
                 {report.hoursGap >= 0 ? "+" : ""}
@@ -649,7 +649,7 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">05</span> — the peak week, cased
+                <span className="eyebrow--signal">05</span>, the peak week, cased
               </p>
               <h2 className="display fm__title">
                 Week {PEAK_WEEK}, the Anniversary, worked to the hour.
@@ -705,7 +705,7 @@ export default function ForemanPage() {
                     <td className="num">
                       {anniversary.reduce((s, r) => s + r.paidHours, 0).toFixed(2)}
                     </td>
-                    <td className="num">—</td>
+                    <td className="num">. </td>
                     <td className="num">
                       {anniversary.reduce((s, r) => s + r.headcount, 0)}
                     </td>
@@ -721,7 +721,7 @@ export default function ForemanPage() {
                 (<span className="mono">{allowedFor("CIN").join(" ")}</span>); the
                 flow runs take day band or better; Cobalt tolerates the night
                 desk. Covering one standard hour at a band&apos;s factor costs
-                <span className="mono"> 1 / factor </span> paid hours — the
+                <span className="mono"> 1 / factor </span> paid hours, the
                 conversion the whole bench rides on.
               </p>
             </div>
@@ -733,7 +733,7 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">06</span> — what the standards did
+                <span className="eyebrow--signal">06</span>, what the standards did
               </p>
               <h2 className="display fm__title">
                 Sheet 05&apos;s five numbers, priced across twelve weeks.
@@ -778,7 +778,7 @@ export default function ForemanPage() {
                       northspan · sheet 05 ↗
                     </a>
                     : the same five MPL values locked in its characterization
-                    bench, its site&apos;s standards page, and here — no new
+                    bench, its site&apos;s standards page, and here, no new
                     constants anywhere on this row of the family tree.
                   </p>
                 </div>
@@ -786,7 +786,7 @@ export default function ForemanPage() {
                   <span className="fm__caption-k">SUPPLEMENT</span>
                   <p className="fm__stage-note">
                     One fixed hour per run-week for counting, housekeeping, and
-                    receipt. It rides whichever band covers the task — fixed
+                    receipt. It rides whichever band covers the task, fixed
                     time is fixed time.
                   </p>
                 </div>
@@ -800,7 +800,7 @@ export default function ForemanPage() {
           <div className="wrp">
             <Reveal>
               <p className="eyebrow">
-                <span className="eyebrow--signal">07</span> — scope &amp; lineage
+                <span className="eyebrow--signal">07</span>, scope &amp; lineage
               </p>
               <h2 className="display fm__title">
                 One planner, four fences, three sources.
@@ -812,7 +812,7 @@ export default function ForemanPage() {
                 {
                   n: "01",
                   name: "No HR detail",
-                  body: "Skill bands and weekly hour caps only. No names, no rosters, no leave policy — the pool is a sheet of capacity, not a crew list.",
+                  body: "Skill bands and weekly hour caps only. No names, no rosters, no leave policy, the pool is a sheet of capacity, not a crew list.",
                 },
                 {
                   n: "02",
@@ -856,7 +856,7 @@ export default function ForemanPage() {
                       >
                         Labuskes 1998, Cornell ↗
                       </a>{" "}
-                      — the staged method&apos;s skeleton: smoothing → trend →
+                     , the staged method&apos;s skeleton: smoothing → trend →
                       seasonality → calendar. The one honest re-order here lifts
                       the known calendar before the smoothing, so a tent sale
                       never reads as a trend.
@@ -870,7 +870,7 @@ export default function ForemanPage() {
                       >
                         Bartholdi &amp; Hackman 0.98.1 ↗
                       </a>{" "}
-                      — <em>Warehouse &amp; Distribution Science</em>; the
+                     . <em>Warehouse &amp; Distribution Science</em>; the
                       standards → workload → coverage chain this engine rides.
                     </li>
                     <li>
@@ -882,7 +882,7 @@ export default function ForemanPage() {
                       >
                         northspan-engine, sheet 05 ↗
                       </a>{" "}
-                      — the standards&apos; home. Pointless without them,
+                     , the standards&apos; home. Pointless without them,
                       delightful with them.
                     </li>
                   </ul>

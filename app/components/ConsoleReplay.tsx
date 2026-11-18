@@ -93,7 +93,7 @@ const PUSHES = [RECORDED[0], RECORDED[1]];
 
 /** the real refusal the console printed when its dial was refused at boot */
 const DARK_LINE =
-  "the yard is dark — dial 127.0.0.1:4780: dial tcp 127.0.0.1:4780: connectex: No connection could be made because the target machine actively refused it.";
+  "the yard is dark, dial 127.0.0.1:4780: dial tcp 127.0.0.1:4780: connectex: No connection could be made because the target machine actively refused it.";
 
 export default function ConsoleReplay() {
   const [state, setState] = useState<ReplayState>(BASE);
@@ -156,7 +156,7 @@ export default function ConsoleReplay() {
       const c = s.consumers[0];
       // a durable consumer re-attaches at its standing floor; the watch
       // redelivers every stream row past the floor it never
-      // delivered-and-acked. kv sets ride the same journal but are never
+      // delivered-and-acked, kv sets ride the same journal but are never
       // delivered to a watcher (the measured idler receipt).
       const owed = s.kinds.slice(c.floor, s.seq).filter((k) => k === "push").length;
       return {
@@ -458,8 +458,8 @@ export default function ConsoleReplay() {
       </div>
 
       <p className="replay__foot">
-        this panel is a replay of the recorded bring-up. the buttons
-        drive a model; nothing here touches a real yard. run the binary
+        this panel is a replay of the recorded bring-up, the buttons
+        drive a model; nothing here touches a real yard, run the binary
         to see the console live: <span className="mono">bin\yardmaster.exe</span>
       </p>
     </div>

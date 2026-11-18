@@ -1,4 +1,4 @@
-// The banner: one brand line, one exit. No menus — the site is the page.
+// The banner: one brand line, one exit. No menus, the site is the page.
 // On a family page (cross) the brand names that family and offers the
 // way back to the yard; each family passes its own door.
 export default function SiteHeader({

@@ -95,6 +95,16 @@ import {
   workLane,
   workSubject,
 } from "./yard.ts";
+import {
+  SEAM,
+  orderGate,
+  quayBytes,
+  seamSubject,
+  tourBytes,
+  verdictBytes,
+  windowBytes,
+  windowCall,
+} from "./seams.ts";
 
 /* ============================================================
    knobs — the sheet's stated settings, named so the site and the
@@ -118,6 +128,8 @@ export interface WesOptions {
   readonly pendingCap?: number;
   /** unpaced = everything leaves at publish (the counterfactual) */
   readonly paced?: boolean;
+  /** zones that should hesitate instead of taking a window */
+  readonly busyZones?: readonly { zone: number; fromSec: number; toSec: number }[];
 }
 
 export interface FreezeRec {
@@ -235,6 +247,7 @@ export class DespatchWes {
       pendingCap: 8,
       paced: true,
       ...opts,
+      busyZones: opts.busyZones ?? [],
     };
     this.caps = zoneCaps(opts.zoneCount, opts.pickersPerZone);
     this.given = new Array(opts.zoneCount).fill(0);
@@ -260,6 +273,10 @@ export class DespatchWes {
     for (let z = 0; z < this.opts.zoneCount; z++) {
       await this.yard.ensureLane(workLane(z));
     }
+    await this.yard.ensureLane(SEAM.quay);
+    await this.yard.ensureLane(SEAM.northspan);
+    await this.yard.ensureLane(SEAM.hearth);
+    await this.yard.ensureLane(SEAM.fluxline);
 
     // the board — chapter one of crash recovery
     const board = await this.yard.kvGet(NAME.pace, K_BOARD);
@@ -637,6 +654,14 @@ export class DespatchWes {
           stops: work.stops,
         }),
       );
+      await this.publishSeams({
+        batch: work.batch,
+        zone: work.zone,
+        releaseSec: work.releaseSec,
+        tourSec: d.tourSec,
+        orders: work.orders,
+        stops: work.stops,
+      });
       const row: ReceiptRow = {
         kind: "receipt",
         batch: d.batchId,
@@ -783,6 +808,44 @@ export class DespatchWes {
     );
   }
 
+  /* family lanes. The work row is unchanged. These four rows are
+     the seam each engine can replace later. */
+  private async publishSeams(row: {
+    batch: string
+    zone: number
+    releaseSec: number
+    tourSec: number
+    orders: readonly string[]
+    stops: readonly { sku: string; aisle: number; bay: number; qty: number }[]
+  }): Promise<void> {
+    const busy = this.opts.busyZones ?? []
+    for (let i = 0; i < row.stops.length; i++) {
+      await this.yard.publishRow(
+        SEAM.quay,
+        seamSubject(SEAM.quay, `${row.batch}.${i}`),
+        quayBytes(row.batch, row.stops[i]),
+      )
+    }
+    await this.yard.publishRow(
+      SEAM.northspan,
+      seamSubject(SEAM.northspan, row.batch),
+      tourBytes(row.batch, row.zone, row.tourSec),
+    )
+    const call = windowCall(row.zone, row.releaseSec, busy)
+    await this.yard.publishRow(
+      SEAM.hearth,
+      seamSubject(SEAM.hearth, row.batch),
+      windowBytes(row.batch, row.zone, row.releaseSec, call.decision, call.reason),
+    )
+    for (const order of row.orders) {
+      await this.yard.publishRow(
+        SEAM.fluxline,
+        seamSubject(SEAM.fluxline, `${row.batch}.${order}`),
+        verdictBytes(row.batch, order, orderGate(order)),
+      )
+    }
+  }
+
   /* ============================================================
      the holds: a zone with room lets its held batches out
      ============================================================ */
@@ -812,6 +875,14 @@ export class DespatchWes {
           stops: h.stops,
         }),
       );
+      await this.publishSeams({
+        batch: h.batch,
+        zone: h.zone,
+        releaseSec: h.plannedSec,
+        tourSec: h.tourSec,
+        orders: h.orders,
+        stops: h.stops,
+      });
       const row: ReceiptRow = {
         kind: "receipt",
         batch: h.batch,

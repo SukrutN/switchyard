@@ -1,4 +1,4 @@
-/* dcsim — unit 11. One closed hour, three policies, the engines' numbers. */
+/* dcsim, unit 11. One closed hour, three policies, the engines' numbers. */
 
 import type { Metadata } from "next"
 
@@ -11,7 +11,7 @@ import { compare, SHIFT } from "@/engine/dcsim/index.ts"
 import type { Policy, Report } from "@/engine/dcsim/index.ts"
 
 export const metadata: Metadata = {
-  title: "dcsim · unit-11 — one closed hour",
+  title: "dcsim · unit-11, one closed hour",
   description:
     "A synthetic hour at Bramble & Twine. FCFS, despatch, and despatch with an AMR window, on one clock. Not a digital twin.",
 }
@@ -46,18 +46,18 @@ export default function DcsimPage() {
                 <div className="hero__tag__v">{SHIFT.seed}</div>
               </div>
               <div className="hero__tag hero__tag--right">
-                <div className="hero__tag__k">NOT</div>
-                <div className="hero__tag__v">A DIGITAL TWIN</div>
+                <div className="hero__tag__k">NOTE</div>
+                <div className="hero__tag__v">NO LIVE FLOOR</div>
               </div>
             </div>
-            <p className="eyebrow">dcsim — the hour the engines share</p>
-            <h1 className="display hero__claim">Synthetic closed world. Not a twin.</h1>
+            <p className="eyebrow">dcsim, one hour on one clock</p>
+            <h1 className="display hero__claim">Same orders. Three ways to let them go.</h1>
             <p className="lede hero__lede">
               {trio.fcfs.orders} orders arrive in one seeded hour. Despatch batches them, boxcar counts
-              the cartons, and the divert law names the lane. The clock is the only thing added. FlexSim,
-              AnyLogic, Plant Simulation, and AutoMod are what this kind of picture is usually sold as.
-              This one is the engines, run twice on the same seed, with the first ten minutes left out of
-              the throughput.
+              the cartons, and the divert rule names the lane. Nothing here is a live building. FlexSim,
+              AnyLogic, Plant Simulation, and AutoMod are the products people usually buy for this
+              picture. These numbers are the engines, run twice on the same seed. The first ten minutes
+              are left out of the throughput.
             </p>
           </div>
         </section>
@@ -75,7 +75,7 @@ export default function DcsimPage() {
               Batching cuts the walk from {trio.fcfs.totalTourSec} s to {trio.despatch.totalTourSec} s and
               leaves zones idle for {trio.despatch.starvationSec} s while the window is shut. The AMR gate
               keeps those tours and adds {trio["despatch-amr"].amrWaitSec} s of waiting. Five neighbouring
-              seeds depart 31, 34, 33, 32, and 34 orders in the measured window — a spread of 3.
+              seeds depart 31, 34, 33, 32, and 34 orders in the measured window, a spread of 3.
             </p>
           </div>
         </section>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Renders a number that counts up once the element scrolls into view.
- * Reduced-motion readers get the final value immediately — the count is
+ * Reduced-motion readers get the final value immediately, the count is
  * decoration; the number is the point.
  */
 export default function CountUp({

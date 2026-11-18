@@ -21,7 +21,7 @@ export default function CopyBlock({
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1600);
     } catch {
-      // clipboard refused (permissions/etc.) — the text is selectable
+      // clipboard refused (permissions/etc.), the text is selectable
       // either way, so nothing breaks.
     }
   };

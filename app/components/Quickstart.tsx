@@ -3,7 +3,7 @@ import Reveal from "./Reveal";
 import "./quickstart.css";
 
 /**
- * The quickstart, exactly as the README runs it — four stations,
+ * The quickstart, exactly as the README runs it, four stations,
  * each copyable. Nothing added, nothing polished into inaccuracy.
  */
 export default function Quickstart() {
