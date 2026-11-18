@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "test": "node --test \"engine/boxcar-engine/tests/*.test.ts\" \"engine/despatch-engine/tests/*.test.ts\" \"engine/despatch-wes/tests/*.test.ts\" \"engine/waybill/tests/*.test.ts\" \"engine/foreman-engine/tests/*.test.ts\"",
+    "test": "node --test \"engine/boxcar-engine/tests/*.test.ts\" \"engine/despatch-engine/tests/*.test.ts\" \"engine/despatch-wes/tests/*.test.ts\" \"engine/waybill/tests/*.test.ts\" \"engine/foreman-engine/tests/*.test.ts\" \"engine/gangway-engine/tests/*.test.ts\" \"engine/dcsim/tests/*.test.ts\"",
     "bench": "node engine/boxcar-engine/bench/bench.ts",
     "bench:boxcar": "node engine/boxcar-engine/bench/bench.ts",
     "bench:despatch": "node engine/despatch-engine/bench/bench.ts",

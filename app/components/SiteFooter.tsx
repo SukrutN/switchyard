@@ -56,6 +56,12 @@ export default function SiteFooter() {
             <a className="wl-link" href="/foreman/">
               foreman · unit-06 · the labor plan
             </a>
+            <a className="wl-link" href="/gangway/">
+              gangway · unit-10 · the dock day
+            </a>
+            <a className="wl-link" href="/dcsim/">
+              dcsim · unit-11 · one closed hour
+            </a>
             <p className="footer__head footer__head--gap">THE YARD</p>
             <a
               className="wl-link"

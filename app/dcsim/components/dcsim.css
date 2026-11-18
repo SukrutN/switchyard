@@ -1,0 +1,78 @@
+.dc-hero {
+  padding-block: clamp(2rem, 4vw, 3.5rem) 0;
+}
+
+.dc-h {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  margin: 0.2rem 0 0.8rem;
+}
+
+.dc-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.dc-card {
+  border: 1px solid var(--line);
+  background: var(--paper-raise);
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.dc-card__k {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  color: var(--ink-50);
+  margin: 0;
+}
+
+.dc-card__n {
+  font-size: 1.8rem;
+  margin: 0.35rem 0;
+  color: var(--ink);
+}
+
+.dc-card__bar {
+  display: block;
+  height: 0.45rem;
+  background: var(--line);
+  margin-bottom: 0.8rem;
+}
+
+.dc-card__bar span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+
+.dc-card__row {
+  margin: 0.2rem 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.dc-note,
+.dc-gates {
+  color: var(--ink-70);
+}
+
+.dc-gates {
+  list-style: none;
+  padding: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.dc-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
+}
+
+@media (max-width: 800px) {
+  .dc-cards,
+  .dc-split {
+    grid-template-columns: 1fr;
+  }
+}
