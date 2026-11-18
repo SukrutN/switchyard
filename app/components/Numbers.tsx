@@ -3,7 +3,7 @@ import Reveal from "./Reveal";
 import "./numbers.css";
 
 /**
- * The yard by the numbers — a dark console band. Every gauge is the
+ * The yard by the numbers, a dark console band. Every gauge is the
  * upper bound of a three-run range printed by scripts/bench.ps1
  * (2026-10-21, i7-8700, Windows 11, Go 1.25); the honest spread sits
  * under each number so the band cannot lie either.

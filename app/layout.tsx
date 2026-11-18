@@ -16,7 +16,7 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
-// The Pages URL the site is served from — the anchor for every
+// The Pages URL the site is served from, the anchor for every
 // absolute social URL. In CI builds Next applies the basePath itself,
 // so give it the bare origin there; local builds get the full URL.
 const SITE_ORIGIN = "https://sukrutn.github.io";
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ),
   title: "switchyard: a Go message broker that never lies",
   description:
-    "A Go message broker: pub/sub, durable streams, key-value state, a read-only console. One binary, one protocol file, receipts on durable writes. v1.0.0.",
+    "A Go message broker: pub/sub, durable streams, key-value state, a read-only console. One binary, one protocol file, receipts on durable writes, v1.0.0.",
   keywords: [
     "go",
     "message broker",

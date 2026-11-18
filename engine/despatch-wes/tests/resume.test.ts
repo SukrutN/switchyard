@@ -47,6 +47,10 @@ const JOURNAL_LANES = [
   "work-z2",
   "work-z3",
   "work-z4",
+  "quay-slots",
+  "northspan-tours",
+  "hearth-windows",
+  "fluxline-verdicts",
 ] as const;
 
 test("(a) clean crash: the abandoned session replays to identical journals", async () => {
@@ -155,6 +159,19 @@ test("(b) dirty crash: the same batch ids re-land, then the ledgers converge", a
     base0.consumerFloor("orders", "despatch-batch"),
   );
   assert.equal(ry.consumerFloor("orders", "despatch-batch"), 21, "all 21 rows acked");
+  const seamLanes = ["quay-slots", "northspan-tours", "hearth-windows", "fluxline-verdicts"] as const;
+  for (const lane of seamLanes) {
+    const seen = new Map<string, number>();
+    for (const row of rowsBytes(ry, lane)) {
+      seen.set(row.subject, (seen.get(row.subject) ?? 0) + 1);
+    }
+    for (const [subject, n] of seen) {
+      const dirtyHit = dirty.batchIds.some(
+        (id) => subject.endsWith("." + id) || subject.includes("." + id + "."),
+      );
+      assert.equal(n, dirtyHit ? 2 : 1, `${subject} on ${lane}`);
+    }
+  }
   // nothing extra, nothing missing on the manifest
   const baseCounts = new Map<string, number>();
   for (const r of receiptsOf(base0)) baseCounts.set(r.batch, (baseCounts.get(r.batch) ?? 0) + 1);

@@ -3,8 +3,8 @@ import ConsoleReplay from "./ConsoleReplay";
 import "./consoleSection.css";
 
 /**
- * The site mirrors the yardmaster console — the read-only companion
- * binary the broker repo ships (switchyard PR #10) — and lets the page
+ * The site mirrors the yardmaster console, the read-only companion
+ * binary the broker repo ships (switchyard PR #10), and lets the page
  * drive it: a replay seeded from the REAL snapshot the console served
  * (2026-10-22T17:28:00Z), with buttons for the recorded bring-up. Wire
  * receipts print spur's own words; every replayed op costs the journal

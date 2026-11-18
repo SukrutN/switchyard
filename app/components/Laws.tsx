@@ -3,7 +3,7 @@ import "./laws.css";
 
 /**
  * The proofs: the yard's three laws, as a numbered stack. Every word
- * here is the broker README's own wording, trimmed for display — no
+ * here is the broker README's own wording, trimmed for display, no
  * invented claims. This is the section that makes the site trustworthy.
  */
 export default function Laws() {

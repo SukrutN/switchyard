@@ -38,6 +38,10 @@ const LANES = [
   "work-z2",
   "work-z3",
   "work-z4",
+  "quay-slots",
+  "northspan-tours",
+  "hearth-windows",
+  "fluxline-verdicts",
 ] as const;
 
 for (const key of DAY_KEYS) {

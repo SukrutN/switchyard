@@ -5,7 +5,7 @@ import "./motion.css";
 
 /**
  * Motion wiring, borrowed but hand-built: no animation library rides
- * along. Three grammars, one paper voice —
+ * along. Three grammars, one paper voice . 
  *
  *  - headline wipes: a marker grows across each line, then slides off
  *    while the words appear behind it (IntersectionObserver, staggered)
@@ -30,7 +30,7 @@ export default function Motion() {
       window.matchMedia("(pointer: fine)").matches;
     const cleanups: Array<() => void> = [];
 
-    /* ---------- 1. headline wipes ---------- */
+    /* ---------- 1, headline wipes ---------- */
 
     if (!reduced) {
       const wipes = document.querySelectorAll<HTMLElement>(
@@ -51,7 +51,7 @@ export default function Motion() {
       cleanups.push(() => io.disconnect());
     }
 
-    /* ---------- 2. scroll-fill bodies ---------- */
+    /* ---------- 2, scroll-fill bodies ---------- */
 
     const fills: Array<{
       el: HTMLElement;
@@ -160,7 +160,7 @@ export default function Motion() {
     raf = window.requestAnimationFrame(loop);
     cleanups.push(() => window.cancelAnimationFrame(raf));
 
-    /* ---------- 3. the tour lens (cursor crosshair) ---------- */
+    /* ---------- 3, the tour lens (cursor crosshair) ---------- */
 
     type Lens = {
       host: HTMLElement | null;
@@ -235,7 +235,7 @@ export default function Motion() {
       }
     }
 
-    /* ---------- 4. eased anchors ---------- */
+    /* ---------- 4, eased anchors ---------- */
 
     if (!reduced) {
       const easeInOutExpo = (t: number) =>

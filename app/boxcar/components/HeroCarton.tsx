@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { CartonRaw } from "@/engine/boxcar-engine/fixtures/cartons.ts";
 
 /**
- * hero-carton — the CSS-3D parcel, cydstumpel's rotating box retold
+ * hero-carton, the CSS-3D parcel, cydstumpel's rotating box retold
  * in the yard's paper. The pose is plain CSS (no-JS readers get the
  * same parcel at rest); a pointer simply re-answers the custom
  * properties, and prefers-reduced-motion keeps it still.

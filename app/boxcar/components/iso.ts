@@ -1,5 +1,5 @@
 /* ============================================================
-   iso — the classic 3D placement diagram, drawn as isometric
+   iso, the classic 3D placement diagram, drawn as isometric
    SVG polygons. Pure math, no dependencies, no canvas: the
    figure on the page and the interactive pack hall share it.
 

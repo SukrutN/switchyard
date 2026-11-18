@@ -6,7 +6,7 @@ import "./tour.css";
 /**
  * The README's quickstart, typed on a loop. Output lines are wire
  * facts the protocol guarantees (PONG, DELIVER in accepted order,
- * fsynced receipts, the Yardmaster's snapshot) — nothing invented.
+ * fsynced receipts, the Yardmaster's snapshot), nothing invented.
  * Reduced-motion readers get the whole transcript at once.
  */
 type Line = { kind: "cmd" | "ok" | "out"; text: string };

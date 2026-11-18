@@ -1,5 +1,5 @@
 /* ============================================================
-   DCPlan — the Bramble & Twine floor as svg, one shared rig.
+   DCPlan, the Bramble & Twine floor as svg, one shared rig.
 
    Pure and stateless: the hero (server, build time) and the
    despatch hall (client, live) render the same component with
@@ -30,7 +30,7 @@ export interface PlanTour {
 export interface DCPlanProps {
   /** the catalog's 24 pick faces, drawn soft as background grain */
   catalog?: readonly CatalogEntry[];
-  /** one signal tour — sugar for `tours` */
+  /** one signal tour, sugar for `tours` */
   tour?: string;
   /** the tour's merged stops, drawn as qty-sized face dots */
   stops?: readonly PickStop[];
@@ -139,7 +139,7 @@ export default function DCPlan({
         </text>
       ))}
 
-      {/* the catalog's pick faces, the slotter's word — tooltips ride
+      {/* the catalog's pick faces, the slotter's word, tooltips ride
           as innerHTML: React 19 empties real svg <title> on the server */}
       {catalog?.length
         ? catalog.map((c) => (

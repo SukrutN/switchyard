@@ -1,11 +1,11 @@
 /* ============================================================
-   plan — the floor of Bramble & Twine, as svg coordinates.
+   plan, the floor of Bramble & Twine, as svg coordinates.
 
    One projection every panel shares: aisles are columns, bays
    run away from the front cross-aisle, the depot sits west of
    aisle 1. The tour path is the traversal proxy exactly as the
-   engine pays it — along the front, into every visited aisle,
-   out again — so the drawing is the arithmetic, not a metaphor.
+   engine pays it, along the front, into every visited aisle,
+   out again, so the drawing is the arithmetic, not a metaphor.
    ============================================================ */
 
 import type { PickStop } from "@/engine/despatch-engine/index.ts";
@@ -17,7 +17,7 @@ export const PLAN = {
   mouthX: 26, // center of aisle 1
   frontY: 62, // y of the front cross-aisle walk line
   bayGap: 9.5, // y per bay of aisle depth
-  W: 322, // incl. west depot apron + east bay-ruler margin
+  W: 322, // incl, west depot apron + east bay-ruler margin
 } as const;
 
 export function planX(aisle: number): number {
@@ -39,7 +39,7 @@ export function planH(): number {
 /** west apron: where the depot stands */
 export const DEPOT = { x: planX(1) - 16, y: PLAN.frontY } as const;
 
-/** escape a string for an inline <title> — React 19 hoists real
+/** escape a string for an inline <title>. React 19 hoists real
     <title> children out of svg on the server, emptying them, so
     tooltips ride in as raw innerHTML instead. */
 export function escTitle(s: string): string {

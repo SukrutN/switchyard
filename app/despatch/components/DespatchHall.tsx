@@ -20,10 +20,10 @@ import { escTitle, tourPath } from "./plan";
 import "./hall.css";
 
 /* ============================================================
-   DespatchHall — the board, run live in the reader's tab.
+   DespatchHall, the board, run live in the reader's tab.
 
    Every switch re-calls the pure engine (batchOnline, releasePlan)
-   the same way the characterization suite calls it — a window swap
+   the same way the characterization suite calls it, a window swap
    costs milliseconds, so the sweep is felt, not narrated. The one
    thing pre-baked is the tabu pass: its scan is quadratic by
    design, so it arrives here as a reported delta, not a demo stall.
@@ -57,7 +57,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
 
   const day = useMemo(() => dayByKey(profileKey), [profileKey]);
 
-  /* the whole window sweep for the current day — six pure calls */
+  /* the whole window sweep for the current day, six pure calls */
   const sweeps = useMemo(
     () =>
       WINDOW_SWEEP.map((w) => ({
@@ -250,7 +250,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
 
         <aside className="dh__side">
           {/* the batches the windows built */}
-          <p className="dh__side-h mono">carts — pick one, read its tour</p>
+          <p className="dh__side-h mono">carts, pick one, read its tour</p>
           <ol className="dh__chips">
             {carts.map((b, i) => (
               <li key={b.id}>
@@ -269,7 +269,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
           </ol>
 
           {/* the freeze ledger */}
-          <p className="dh__side-h mono">freeze ledger — when the board let go</p>
+          <p className="dh__side-h mono">freeze ledger, when the board let go</p>
           <ol className="dh__ledger">
             {run.freezes.map((f, i) => (
               <li
@@ -295,7 +295,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
       <div className="dh__lower">
         <div className="dh__release">
           <p className="dh__panel-h mono">
-            release board — w={wSec}s ·{" "}
+            release board, w={wSec}s ·{" "}
             {day.profile.pickersPerZone} picker
             {day.profile.pickersPerZone === 1 ? "" : "s"}/zone · EDD · craft =
             tour + {CRAFT_OVERHEAD_SEC}s
@@ -323,7 +323,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
                 <span className="dh__sig">
                   {board.paced.breaches.length} releases
                 </span>{" "}
-                past due — the trade, on the record, not smoothed away. last
+                past due, the trade, on the record, not smoothed away, last
                 release: t+{fmtInt(board.paced.lastReleaseSec)}s paced vs t+
                 {fmtInt(board.unpaced.lastReleaseSec)}s unpaced.
               </>
@@ -331,7 +331,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
               <>
                 pacing holds the peak and{" "}
                 <span className="dh__sig">breaches nothing</span> at this
-                window — the dues survive the crew they were promised to.
+                window, the dues survive the crew they were promised to.
               </>
             )}
           </p>
@@ -339,7 +339,7 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
 
         <div className="dh__sweep">
           <p className="dh__panel-h mono">
-            the sweep — walks saved vs lateness across the windows
+            the sweep, walks saved vs lateness across the windows
           </p>
           <SweepChart
             sweeps={sweeps}
@@ -350,16 +350,16 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
           />
           <p className="dh__sweep-note mono">
             windows pool orders into tours: savings climb, waits grow, and the
-            signal bars are the orders the promise lost — v0.2's tardiness is
+            signal bars are the orders the promise lost, v0.2's tardiness is
             reported, never swept under.
           </p>
         </div>
       </div>
 
       <p className="dh__note mono">
-        recomputed in this tab on every switch — batchOnline and releasePlan are
+        recomputed in this tab on every switch, batchOnline and releasePlan are
         pure, byte-stable calls, the same ones the characterization suite
-        grades. the tabu pass is pre-baked per day: its scan is quadratic, and{" "}
+        grades, the tabu pass is pre-baked per day: its scan is quadratic, and{" "}
         {tabuOf
           ? `${fmtInt(tabuOf.appliedMoves)} moves were applied off-line.`
           : "no moves were applied off-line."}

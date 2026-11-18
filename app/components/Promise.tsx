@@ -2,7 +2,7 @@ import Reveal from "./Reveal";
 import "./promise.css";
 
 /**
- * The protocol promise: v1 is frozen — families append, op numbers
+ * The protocol promise: v1 is frozen, families append, op numbers
  * never move. The table is lifted from the spec's own family ranges.
  */
 const FAMILIES: Array<{ name: string; sections: string; ops: string }> = [

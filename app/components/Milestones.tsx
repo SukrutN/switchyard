@@ -2,7 +2,7 @@ import Reveal from "./Reveal";
 import "./milestones.css";
 
 /**
- * The birthlog, straight from CHANGELOG.md — the releases landed
+ * The birthlog, straight from CHANGELOG.md, the releases landed
  * July 18 through October 21, a chronology the timeline keeps honest.
  */
 const MILESTONES = [

@@ -44,7 +44,7 @@ import {
 import benchRaw from "@/engine/despatch-engine/bench/results.json";
 
 export const metadata: Metadata = {
-  title: "despatch · unit-01 — the despatch board",
+  title: "despatch · unit-01, the despatch board",
   description:
     "Batching and release from the switchyard family: freeze windows that batch an on-line order stream onto cart tours, a waveless release gate that paces them against zone labor, and a tabu pass reported as a delta. Deterministic demand, zero dependencies, byte-stable.",
 };
@@ -85,7 +85,7 @@ const bench = benchRaw as {
 /* ============================================================
    build-time despatch: the page's whole ledger. Every figure the
    page prints is its own batchOffline/batchOnline/releasePlan
-   call — the same deterministic days fixtures/expected.ts locks,
+   call, the same deterministic days fixtures/expected.ts locks,
    re-run at build so the site can never drift from the engine.
    ============================================================ */
 
@@ -103,7 +103,7 @@ const heroBatch = [...runs["average-day"].batches].sort(
   (a, b) => b.ledger.tourSec - a.ledger.tourSec,
 )[0];
 
-/* fix 01 — the best co-picking pair among the day's first orders:
+/* fix 01, the best co-picking pair among the day's first orders:
    two singles vs their merged tour, straight off the proxy */
 const f1 = (() => {
   const pool: { id: string; stops: readonly PickStop[]; sec: number }[] =
@@ -132,7 +132,7 @@ const f1 = (() => {
   return best!;
 })();
 
-/* fix 02 — the 90-second window: where the ticks and freezes land */
+/* fix 02, the 90-second window: where the ticks and freezes land */
 const f2run = batchOnline(AVG.orders, 90, SLOTTING);
 const TL_SPAN = 2700; // the first 45 minutes, drawn
 const f2arrivals = AVG.orders
@@ -155,7 +155,7 @@ const f2exemplar = f2arrivals
   .filter((e) => (f2run.publish[e.o.id] ?? 0) < TL_SPAN)
   .sort((a, b) => b.wait - a.wait)[0];
 
-/* fix 03 — the release board on the average day at w=90 */
+/* fix 03, the release board on the average day at w=90 */
 const f3 = (() => {
   const jobs = buildJobList(
     f2run.publishedBatches,
@@ -198,7 +198,7 @@ const libTick = CATALOG.map((c) => ({
 const ENGINE_README =
   "https://github.com/SukrutN/switchyard-site/blob/main/engine/despatch-engine/README.md";
 
-/* the despatch law, quoted with the constants' own values —
+/* the despatch law, quoted with the constants' own values . 
    change src/constants.ts and the sheet repoints itself. */
 const LAWSHEET = `/* the despatch law, src/constants.ts */
 
@@ -259,7 +259,7 @@ export default function DespatchPage() {
 
             <div className="hero__grid">
               <div>
-                <p className="eyebrow">despatch — the batching &amp; release family</p>
+                <p className="eyebrow">despatch, the batching &amp; release family</p>
                 <h1 className="display hero__claim">
                   <span className="hero__line">
                     <span style={{ "--d": "0ms" } as React.CSSProperties}>
@@ -281,7 +281,7 @@ export default function DespatchPage() {
                 <p className="lede hero__lede">
                   An order stream becomes cart tours: frozen inside windows and
                   published on the tick, released only when a zone has the
-                  picker-seconds to afford them — with the tardiness and the
+                  picker-seconds to afford them, with the tardiness and the
                   trade-offs written into the ledger, never smoothed away.
                   Same order bytes in, same batches out.
                 </p>
@@ -316,14 +316,14 @@ export default function DespatchPage() {
                   </a>
                 </div>
 
-                {/* the three moves, numbered — the runner's step strip */}
+                {/* the three moves, numbered, the runner's step strip */}
                 <div className="dp-hero__steps">
                   <div className="dp-hero__step">
                     <span className="dp-hero__step-k mono">01 · observe</span>
                     <p className="dp-hero__step-t">arrivals, dues, labor</p>
                     <p className="dp-hero__step-b">
                       An order stream with SLA clocks and a picker crew per
-                      zone — the only inputs a worked day needs.
+                      zone, the only inputs a worked day needs.
                     </p>
                   </div>
                   <div className="dp-hero__step">
@@ -338,7 +338,7 @@ export default function DespatchPage() {
                     <span className="dp-hero__step-k mono">03 · pace</span>
                     <p className="dp-hero__step-t">the floor breathes by release</p>
                     <p className="dp-hero__step-b">
-                      EDD holds carts until a zone can afford the craft — and
+                      EDD holds carts until a zone can afford the craft, and
                       the breaches get signed, not hidden.
                     </p>
                   </div>
@@ -420,7 +420,7 @@ export default function DespatchPage() {
                     Merged stops are the whole trick: one face visited once,
                     quantity added. The engine asserts{" "}
                     <span className="mono">tour(A)+tour(B) ≥ tour(A∪B)</span>{" "}
-                    and the tests hold the inequality across every worked day —
+                    and the tests hold the inequality across every worked day . 
                     the savings are exactly what the proxy pays, nothing
                     invented.
                   </p>
@@ -441,7 +441,7 @@ export default function DespatchPage() {
                   <p className="dp__fix-body" data-fill>
                     The freeze window is the whole on-line rule: land inside a
                     window, out at the freeze; land later, wait one. Widening w
-                    buys bigger pools and better tours — and the ledger keeps
+                    buys bigger pools and better tours, and the ledger keeps
                     the price in black and white: orders past their SLA due get
                     counted, listed, and shown.
                   </p>
@@ -464,7 +464,7 @@ export default function DespatchPage() {
                     A zone spends only the picker-seconds it owns: one craft
                     leaves the moment the crew can afford tour plus{" "}
                     {CRAFT_OVERHEAD_SEC}s of marshal and hand-off. Where pacing
-                    runs late, the plan names the batches —{" "}
+                    runs late, the plan names the batches . {" "}
                     <span className="mono">breaches[]</span>, not a footnote.
                   </p>
                 </article>
@@ -491,7 +491,7 @@ export default function DespatchPage() {
               The worked trio, run live in your browser by the same
               deterministic engine the tests grade. Flip the day, drag the
               freeze window across its sweep, and watch carts, waits, and
-              lateness answer in milliseconds — the trade, felt rather than
+              lateness answer in milliseconds, the trade, felt rather than
               narrated.
             </p>
 
@@ -548,7 +548,7 @@ export default function DespatchPage() {
             </table>
             <p className="dp__note mono">
               the same figures are pinned in fixtures/expected.ts and held to
-              ±0.5 s by tests/characterization.test.ts — the table above is
+              ±0.5 s by tests/characterization.test.ts, the table above is
               this build's own batchOffline + tabuImprove calls, not a
               transcription.
             </p>
@@ -576,16 +576,16 @@ export default function DespatchPage() {
                 cross-aisle, walk each visited aisle to its deepest pick and
                 back, stop once per face. The same seconds that build the
                 saved-percent are the ones the release gate charges the zones
-                —{" "}
+                . {" "}
                 <span className="mono">craft = tour + {CRAFT_OVERHEAD_SEC}s</span>{" "}
-                — so no half of the engine can flatter the other.
+               , so no half of the engine can flatter the other.
               </p>
               <p className="dp__law-note" data-fill>
                 Two rules sit above the batching. The window: an order is
                 visible only once it has landed, and everything landed
-                publishes at the freeze — v0.2's honesty about time. The gate:
-                a batch rides its home zone's crew — one picker ×{" "}
-                {LINES_PER_PICKER_HOUR} lines/hour — with the craft counted the
+                publishes at the freeze, v0.2's honesty about time. The gate:
+                a batch rides its home zone's crew, one picker ×{" "}
+                {LINES_PER_PICKER_HOUR} lines/hour, with the craft counted the
                 moment the cart rolls, never before its publish tick. December's
                 spike is where the gate is loudest: Z1's crew saturates around{" "}
                 fifty carts however cleverly the windows pool, and the fix there
@@ -618,7 +618,7 @@ export default function DespatchPage() {
               moving. Every row re-checks byte-level determinism: two full
               passes of the same day must serialize identically, or the row
               can't call itself a result. The tabu pass runs its quadratic scan
-              only on day-sized inputs — beyond that, the honest cell is a dash,
+              only on day-sized inputs, beyond that, the honest cell is a dash,
               not a fudged number.
             </p>
 
@@ -646,12 +646,12 @@ export default function DespatchPage() {
                     <td>{r.batchMs.toFixed(2)}</td>
                     <td>{r.onlineMs.toFixed(2)}</td>
                     <td>{r.releaseMs.toFixed(2)}</td>
-                    <td>{r.tabuMs === null ? "—" : r.tabuMs.toFixed(2)}</td>
+                    <td>{r.tabuMs === null ? ". " : r.tabuMs.toFixed(2)}</td>
                     <td>
                       {r.deterministic ? (
                         <span className="dp__ok">✓</span>
                       ) : (
-                        "—"
+                        ". "
                       )}
                     </td>
                   </tr>
@@ -692,7 +692,7 @@ export default function DespatchPage() {
             <p className="dp__note mono">
               {bench.note} · bench run dated {bench.generated} · read from
               bench/results.json, the committed artifact · carts here are the
-              batch stage&apos;s whole-day pooled tours — the hall&apos;s{" "}
+              batch stage&apos;s whole-day pooled tours, the hall&apos;s{" "}
               carts built are the on-line window freezes; one cap, two lenses
             </p>
           </div>
@@ -715,7 +715,7 @@ export default function DespatchPage() {
             <p className="lede dp__lede" data-fill>
               The family sheet drew the scope fences before the first line of
               engine code. They are what keep one unit small enough to read in
-              an afternoon — and honest about what it is.
+              an afternoon, and honest about what it is.
             </p>
 
             <div className="dp__fences">
@@ -739,7 +739,7 @@ export default function DespatchPage() {
                   <p className="dp__fence-body">
                     The inbound half is <span className="mono">quay</span>'s
                     (sheet 07). The catalog's slotting is treated as the
-                    slotter's word — despatch reads faces where they stand.
+                    slotter's word, despatch reads faces where they stand.
                   </p>
                 </div>
               </div>
@@ -749,8 +749,8 @@ export default function DespatchPage() {
                   <h3 className="dp__fence-name">No robot windows</h3>
                   <p className="dp__fence-body">
                     AMR/AGV gating is <span className="mono">hearthline</span>'s
-                    sheet 08. The release gate here reads labor — picker crews,
-                    craft seconds — and stops at the cart, not the robot.
+                    sheet 08. The release gate here reads labor, picker crews,
+                    craft seconds, and stops at the cart, not the robot.
                   </p>
                 </div>
               </div>
@@ -769,13 +769,13 @@ export default function DespatchPage() {
             </div>
 
             <div className="dp__git">
-              <p className="dp__git-head">lineage — sources read, credited</p>
+              <p className="dp__git-head">lineage, sources read, credited</p>
               <div className="dp__git-row">
                 <span className="mono">
                   Ratliff, H.D. &amp; Rosenthal, A.S. (1983), Operations
                   Research 31(3)
                 </span>{" "}
-                — the solvable case of the TSP the traversal proxy respects:{" "}
+               , the solvable case of the TSP the traversal proxy respects:{" "}
                 <a
                   href="https://doi.org/10.1287/opre.31.3.507"
                   target="_blank"
@@ -790,7 +790,7 @@ export default function DespatchPage() {
                   Gademann, N. &amp; van de Velde, S. (2005), IIE Transactions
                   37(1)
                 </span>{" "}
-                — batching to minimize total travel time in a parallel-aisle
+               , batching to minimize total travel time in a parallel-aisle
                 warehouse; the standing heuristic family the seed-and-grow
                 construction descends from.
               </div>
@@ -799,7 +799,7 @@ export default function DespatchPage() {
                   de Koster, R., Le-Duc, T. &amp; Roodbergen, K.J. (2007),
                   European Journal of Operational Research 182(2)
                 </span>{" "}
-                — the review that maps batching rule families and the traversal
+               , the review that maps batching rule families and the traversal
                 proxy:{" "}
                 <a
                   href="https://www.sciencedirect.com/science/article/abs/pii/S0377221706006473"
@@ -814,7 +814,7 @@ export default function DespatchPage() {
                 <span className="mono">
                   Henn, S. (2012), Computers &amp; Operations Research 39(11)
                 </span>{" "}
-                — the on-line order batching algorithms v0.2's window-frozen
+               , the on-line order batching algorithms v0.2's window-frozen
                 protocol implements:{" "}
                 <a
                   href="https://doi.org/10.1016/j.cor.2011.12.019"
@@ -830,7 +830,7 @@ export default function DespatchPage() {
                   Henn, S. &amp; Wäscher, G. (2012), Production Planning &amp;
                   Control 23(2–3)
                 </span>{" "}
-                — the tabu neighborhoods v1.1 borrows: relocate, swap, tenure,
+               , the tabu neighborhoods v1.1 borrows: relocate, swap, tenure,
                 aspiration.
               </div>
               <div className="dp__git-row">
@@ -838,7 +838,7 @@ export default function DespatchPage() {
                   Bartholdi, J.J. &amp; Hackman, S.T., Warehouse &amp;
                   Distribution Science
                 </span>{" "}
-                — the free textbook: batch to savings, release to labor;{" "}
+               , the free textbook: batch to savings, release to labor;{" "}
                 <a
                   href="https://www.warehouse-science.com/"
                   target="_blank"
@@ -858,12 +858,12 @@ export default function DespatchPage() {
 }
 
 /* ============================================================
-   the three glyph scenes — drawn, not decorated: numbers and
+   the three glyph scenes, drawn, not decorated: numbers and
    polylines the engine really produced at build time, projected
    by plan.ts like the hall and the hero share.
    ============================================================ */
 
-/* fix 01 — two single tours vs their merged union, one plan each */
+/* fix 01, two single tours vs their merged union, one plan each */
 function GlyphBatch() {
   return (
     <div className="dp__glyph" aria-hidden="true">
@@ -879,7 +879,7 @@ function GlyphBatch() {
           </div>
           <p className="dp__duo-note mono">
             <span>
-              two carts — <b>{fmtInt(f1.a.sec)}s + {fmtInt(f1.b.sec)}s</b>
+              two carts. <b>{fmtInt(f1.a.sec)}s + {fmtInt(f1.b.sec)}s</b>
             </span>
             <span>{f1.a.id} · {f1.b.id}</span>
           </p>
@@ -897,7 +897,7 @@ function GlyphBatch() {
           </div>
           <p className="dp__duo-note mono">
             <span>
-              one tour — <b>{fmtInt(f1.unionSec)}s</b>
+              one tour. <b>{fmtInt(f1.unionSec)}s</b>
             </span>
             <span>−{fmtInt(f1.save)}s</span>
           </p>
@@ -907,7 +907,7 @@ function GlyphBatch() {
   );
 }
 
-/* fix 02 — the first 45 minutes: landings, freezes, the wait */
+/* fix 02, the first 45 minutes: landings, freezes, the wait */
 function GlyphWindow() {
   const W = 640;
   const H = 168;
@@ -1002,7 +1002,7 @@ function GlyphWindow() {
   );
 }
 
-/* fix 03 — the queue: unpaced peak vs the paced crew the zone owns */
+/* fix 03, the queue: unpaced peak vs the paced crew the zone owns */
 function GlyphPace() {
   const W = 640;
   const H = 128;
@@ -1072,7 +1072,7 @@ function GlyphPace() {
       </text>
 
       <text className="dp__pb-lab" x={left - 18} y={H - 4} textAnchor="start">
-        peak queue in a zone — the release gate's word, not a promise
+        peak queue in a zone, the release gate's word, not a promise
       </text>
     </svg>
   );
