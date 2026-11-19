@@ -1,0 +1,416 @@
+/* ============================================================
+   consol — the site mirrors the yardmaster console's view.
+   The same navy band grammar the numbers section owns; the
+   plates, gate chips, and tables are the console's own.
+   ============================================================ */
+
+.consol {
+  background: var(--console-bg);
+  color: var(--console-fg);
+  border-top: 1px solid var(--ink);
+  padding-block: var(--block);
+  position: relative;
+}
+
+.consol__signal {
+  color: var(--console-signal);
+}
+
+/* an ink-tinted eyebrow vanishes on the dark band */
+.consol .eyebrow {
+  color: var(--console-mut);
+}
+
+.consol__title {
+  margin-top: 0.9rem;
+  font-size: var(--step-3);
+}
+
+.consol__body {
+  margin-top: 1.2rem;
+  max-width: 34em;
+}
+
+.consol__body--mut {
+  color: var(--console-mut);
+}
+
+.consol .mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+/* ---------- the mirrored console ---------- */
+
+.consol__band {
+  margin-top: clamp(2rem, 5vw, 3.6rem);
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+/* gate plates — the console's own masthead chips */
+.consol__gate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.consol__chip {
+  border: 1px solid var(--console-line);
+  padding: 0.12rem 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--console-mut);
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.consol__chip b {
+  color: var(--console-fg);
+  font-weight: 600;
+}
+
+.consol__chip--warn b {
+  color: var(--console-signal);
+}
+
+.consol__chip--live {
+  border-style: dashed;
+  color: var(--console-fg);
+}
+
+.consol__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 0.35rem;
+  background: var(--console-signal);
+  vertical-align: 1px;
+}
+
+/* one plate: hairline box, one signal corner tick, like the app */
+.consol__plate {
+  border: 1px solid var(--console-line);
+  padding: clamp(0.9rem, 2.2vw, 1.2rem) clamp(1rem, 2.4vw, 1.2rem) 1.3rem;
+  margin-top: 1.1rem;
+  position: relative;
+  background: color-mix(in srgb, var(--console-bg) 86%, transparent);
+}
+
+.consol__plate::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--console-signal);
+  border-left: 2px solid var(--console-signal);
+}
+
+.consol__kicker {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--console-mut);
+}
+
+.consol__kicker b {
+  color: var(--console-fg);
+}
+
+.consol__roi {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--console-signal);
+  color: var(--console-signal);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+}
+
+/* yard card + drill facts: the console's dd/dt grid */
+.consol__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem 1.2rem;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .consol__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.consol__cell {
+  border-top: 1px solid var(--console-line);
+  padding-top: 0.45rem;
+}
+
+.consol__cell dt {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--console-mut);
+}
+
+.consol__cell dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.consol__cell dd .consol__hot {
+  color: var(--console-signal);
+}
+
+/* the lanes table */
+.consol__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.consol__table th,
+.consol__table td {
+  text-align: left;
+  padding: 0.42rem 0.5rem;
+  border-bottom: 1px solid var(--console-line);
+  font-size: 0.82rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.consol__table th {
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--console-mut);
+  border-bottom-color: color-mix(in srgb, var(--console-fg) 28%, transparent);
+}
+
+.consol__table th.num,
+.consol__table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.consol__lane-name {
+  color: var(--console-signal);
+}
+
+.consol__row--active {
+  background: color-mix(in srgb, var(--console-signal) 12%, transparent);
+}
+
+.consol__chip--state {
+  border: 1px solid color-mix(in srgb, var(--console-fg) 50%, transparent);
+  color: var(--console-fg);
+  padding: 0.05rem 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+}
+
+.consol__note {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--console-mut);
+  margin: 0.65rem 0 0;
+}
+
+/* the KV row: lane picker (a real select, disabled: this is a mirror) */
+.consol__kvrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.consol__sel {
+  background: var(--console-bg);
+  color: var(--console-fg);
+  border: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.consol__sep {
+  color: var(--console-mut);
+  align-self: center;
+}
+
+.consol__keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 240px;
+  max-width: 380px;
+}
+
+.consol__keys li {
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid var(--console-line);
+  font-size: 0.8rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  cursor: default;
+}
+
+.consol__keys li.active {
+  background: color-mix(in srgb, var(--console-signal) 12%, transparent);
+}
+
+.consol__keyscol {
+  flex: 1 1 240px;
+}
+
+/* the payload plate */
+.consol__value {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--console-line);
+  padding-top: 0.8rem;
+}
+
+.consol__payload {
+  margin: 0.4rem 0 0;
+  padding: 0.7rem 0.8rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--console-fg);
+}
+
+.consol__foot {
+  margin-top: 1.4rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--console-mut);
+}
+
+/* dark-refusal tint on the whole band */
+.consol__band--dark .consol__plate,
+.consol__band--dark .consol__gate {
+  opacity: 0.55;
+}
+
+.consol__band--dark .consol__dot {
+  background: var(--console-mut);
+}
+
+.consol__chip--dark b {
+  color: var(--console-signal);
+}
+
+.consol__note--dark {
+  color: var(--console-signal);
+}
+
+/* button bar — hairline chips in the band's own mono */
+.replay__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.replay__btn {
+  background: transparent;
+  color: var(--console-fg);
+  border: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  padding: 0.34rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease-rx), color 160ms var(--ease-rx),
+    background-color 160ms var(--ease-rx);
+}
+
+.replay__btn:hover:not(:disabled) {
+  border-color: var(--console-signal);
+  color: var(--console-signal);
+}
+
+.replay__btn:focus-visible {
+  outline: 2px solid var(--console-signal);
+  outline-offset: 2px;
+}
+
+.replay__btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.replay__btn--reset {
+  border-style: dashed;
+  color: var(--console-mut);
+}
+
+/* the receipt tape: wire words in spur's own formats, narrations with · */
+.replay__log {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--console-line);
+  padding-top: 0.55rem;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.replay__log:empty {
+  display: none;
+}
+
+.replay__line {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--console-mut);
+  overflow-wrap: anywhere;
+}
+
+.replay__line:first-child {
+  color: var(--console-fg);
+}
+
+.replay__foot {
+  margin-top: 1.4rem;
+  font-size: 0.74rem;
+  color: var(--console-mut);
+  max-width: 44em;
+}
+
+.replay__foot .mono {
+  color: var(--console-fg);
+}
+
+/* the clickable key rows (button reset inside li) */
+.replay__keyline {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+}
+
+.replay__keyline:focus-visible {
+  outline: 2px solid var(--console-signal);
+  outline-offset: 1px;
+}
+
+.replay__keyline:disabled {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .replay__btn {
+    transition: none;
+  }
+}
+
