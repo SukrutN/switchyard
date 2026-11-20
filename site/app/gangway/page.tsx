@@ -137,7 +137,7 @@ export default function GangwayPage() {
         <section className="section" id="day">
           <div className="wrp">
             <p className="eyebrow">the day</p>
-            <h2 className="display gw-h">Who made the door, who waited.</h2>
+            <h2 className="display gw-h">Who got a door, and who waited.</h2>
             <p className="lede">
               Shift opens 06:00. The meal gap is 10:00–11:00. Kettle Freight (HL-01) is the seeded
               no-show. {reading.holds.map((hold) => hold.id).join(" and ")} were booked, then had no

@@ -273,17 +273,13 @@ export default function BoxcarPage() {
                 <h1 className="display hero__claim">
                   <span className="hero__line">
                     <span style={{ "--d": "0ms" } as React.CSSProperties}>
-                      pick the carton,
+                      pick the carton.
                     </span>
                   </span>
                   <span className="hero__line">
                     <span style={{ "--d": "90ms" } as React.CSSProperties}>
-                      settle every box,
-                    </span>
-                  </span>
-                  <span className="hero__line">
-                    <span style={{ "--d": "180ms" } as React.CSSProperties}>
-                      <em>prove the pack-out.</em>
+                      the engine{" "}
+                      <em>proves the pack-out.</em>
                     </span>
                   </span>
                 </h1>
@@ -291,8 +287,9 @@ export default function BoxcarPage() {
                 <p className="lede hero__lede">
                   An order sheet and a five-carton library become placements:
                   gravity-settled, load-rated, stability-checked, and stamped
-                  with a validation report where no-floating is a test, not a
-                  feature. Same order bytes in, same solution bytes out.
+                  with a validation report. The no-floating check runs as a
+                  test in the suite, not a promise. Same order bytes in, same
+                  solution bytes out.
                 </p>
 
                 <div className="hero__cta">
@@ -369,17 +366,17 @@ export default function BoxcarPage() {
             </p>
             <h2 className="display bc__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">The fixes that matter,</span>
+                <span className="wl__t">The three fixes,</span>
               </span>
               <span className="wl" style={{ "--i": 1 } as React.CSSProperties}>
-                <span className="wl__t">kept in the engine.</span>
+                <span className="wl__t">and why they matter.</span>
               </span>
             </h2>
             <p className="lede bc__lede" data-fill>
               Hand-rolled packers fail three exact ways: boxes float in
               mid-air, supports carry past their rating, and lids rest on
-              ridges they barely touch, boxcar closes each one behind an
-              admission gate, and a report line, so you can grade the gate.
+              ridges they barely touch. boxcar closes each one behind an
+              admission gate with a report line, so you can grade the gate.
             </p>
 
             <div className="bc__fix-grid">
@@ -454,7 +451,7 @@ export default function BoxcarPage() {
             </p>
             <h2 className="display bc__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">One sheet, three ships.</span>
+                <span className="wl__t">One order sheet, three shipments.</span>
               </span>
             </h2>
             <p className="lede bc__lede" data-fill>
@@ -542,9 +539,9 @@ export default function BoxcarPage() {
               <p className="bc__law-note" data-fill>
                 Two rules sit above the score. The orphan veto: a run that
                 strands a unit no template could ever carry loses to any run
-                that completes the order. And an empty run never wins . 
-                without that tripwire, a phantom weight margin out of an
-                empty box would beat honest work, so the packer reports the
+                that completes the order. And an empty run never wins.
+                Without that tripwire, a phantom weight margin out of an
+                empty box would beat real work, so the packer reports the
                 stranding under <span className="mono">unfilled</span> and
                 moves on.
               </p>
@@ -556,7 +553,7 @@ export default function BoxcarPage() {
           </div>
         </section>
 
-        {/* ---------- the bench: dark, honest, timestamped by data ---------- */}
+        {/* ---------- the bench band: dark, dated by data ---------- */}
         <section className="section section--pad console" id="bench">
           <div className="wrp">
             <p className="eyebrow">
@@ -626,16 +623,16 @@ export default function BoxcarPage() {
             </p>
             <h2 className="display bc__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">Some doors</span>
+                <span className="wl__t">What it</span>
               </span>
               <span className="wl" style={{ "--i": 1 } as React.CSSProperties}>
-                <span className="wl__t">stay shut.</span>
+                <span className="wl__t">doesn&apos;t do.</span>
               </span>
             </h2>
             <p className="lede bc__lede" data-fill>
               The family sheet drew the scope fences before the first line
-              of solver code. They are what keep one unit small enough to
-              read in an afternoon, and honest about what it is.
+              of solver code. They keep one unit small enough to
+              read in an afternoon, and clear about what it is not.
             </p>
 
             <div className="bc__fences">

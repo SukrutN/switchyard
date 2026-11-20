@@ -345,10 +345,10 @@ export default function ForemanPage() {
                 </h1>
                 <p className="lede hero__lede" data-fill>
                   Fifty-two weeks of ledger go in. A forecast comes out, staged
-                  the classic way; the forecast turns into hours through the
-                  standards&apos; own rates; the casing covers every one of those
-                  hours with people who can actually do the work. Then the week
-                  happens, seeded, and the plan is scored against it.
+                  the classic way. The forecast turns into hours through the
+                  standards&apos; own rates, and the casing covers every one of
+                  those hours with people who can actually do the work. Then
+                  the week happens, seeded, and the plan is scored against it.
                 </p>
                 <div className="hero__cta-row">
                   <a className="hero__cta" href="#ledger">
@@ -474,7 +474,7 @@ export default function ForemanPage() {
               </svg>
               <figcaption className="fm__caption">
                 <span className="fm__caption-k">FIG 1</span> the ledger, the model
-                walked over it, and the twelve weeks the foreman signs its name to.
+                walked over it, and the twelve weeks the plan covers.
                 Season shape and events are fixture data, the only thing fitted is the line.
               </figcaption>
             </div>
@@ -609,7 +609,7 @@ export default function ForemanPage() {
                 <span className="eyebrow--signal">04</span>, the variance waterfalls
               </p>
               <h2 className="display fm__title">
-                The noise is the whole bridge.
+                The gap is all noise.
               </h2>
               <p className="lede fm__lede">
                 Forecast hours, the seeded week&apos;s noise, actual hours . 
@@ -617,8 +617,8 @@ export default function ForemanPage() {
                 whole gap is the noise:{" "}
                 {report.hoursGap >= 0 ? "+" : ""}
                 {n1(report.hoursGap)} standard hours DC-wide. No zone wanders
-                past its own amplitude. Variance moves volume; it never moves
-                the minutes per line.
+                past its own amplitude. Variance moves volume, not the minutes
+                per line.
               </p>
             </Reveal>
 
@@ -827,7 +827,7 @@ export default function ForemanPage() {
                 {
                   n: "04",
                   name: "One DC, one pool",
-                  body: "Bramble & Twine, Meadowfield, one bench. Multi-site balancing is a later sheet's problem, and this engine refuses to quietly solve it.",
+                  body: "Bramble & Twine, Meadowfield, one bench. Multi-site balancing is a later sheet's problem, and this engine does not pretend to solve it.",
                 },
               ].map((fence, i) => (
                 <Reveal key={fence.n} delay={i * 60}>
@@ -857,7 +857,7 @@ export default function ForemanPage() {
                         Labuskes 1998, Cornell ↗
                       </a>{" "}
                      , the staged method&apos;s skeleton: smoothing → trend →
-                      seasonality → calendar. The one honest re-order here lifts
+                      seasonality → calendar. The one deliberate re-order here lifts
                       the known calendar before the smoothing, so a tent sale
                       never reads as a trend.
                     </li>
@@ -882,8 +882,8 @@ export default function ForemanPage() {
                       >
                         northspan-engine, sheet 05 ↗
                       </a>{" "}
-                     , the standards&apos; home. Pointless without them,
-                      delightful with them.
+                      , the standards' home. This planner is pointless
+                      without them.
                     </li>
                   </ul>
                 </div>

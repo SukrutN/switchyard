@@ -350,8 +350,8 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
           />
           <p className="dh__sweep-note mono">
             windows pool orders into tours: savings climb, waits grow, and the
-            signal bars are the orders the promise lost, v0.2's tardiness is
-            reported, never swept under.
+            signal bars are the late orders. Tardiness is reported, not
+            hidden.
           </p>
         </div>
       </div>

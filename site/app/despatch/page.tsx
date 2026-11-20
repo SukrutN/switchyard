@@ -263,17 +263,13 @@ export default function DespatchPage() {
                 <h1 className="display hero__claim">
                   <span className="hero__line">
                     <span style={{ "--d": "0ms" } as React.CSSProperties}>
-                      batch the stream,
+                      batch the stream.
                     </span>
                   </span>
                   <span className="hero__line">
                     <span style={{ "--d": "90ms" } as React.CSSProperties}>
-                      pace the release,
-                    </span>
-                  </span>
-                  <span className="hero__line">
-                    <span style={{ "--d": "180ms" } as React.CSSProperties}>
-                      <em>prove the despatch.</em>
+                      the engine paces the release and{" "}
+                      <em>proves the despatch.</em>
                     </span>
                   </span>
                 </h1>
@@ -282,8 +278,8 @@ export default function DespatchPage() {
                   An order stream becomes cart tours: frozen inside windows and
                   published on the tick, released only when a zone has the
                   picker-seconds to afford them, with the tardiness and the
-                  trade-offs written into the ledger, never smoothed away.
-                  Same order bytes in, same batches out.
+                  trade-offs written into the ledger rather than smoothed
+                  away. Same order bytes in, same batches out.
                 </p>
 
                 <div className="hero__cta">
@@ -336,10 +332,10 @@ export default function DespatchPage() {
                   </div>
                   <div className="dp-hero__step">
                     <span className="dp-hero__step-k mono">03 · pace</span>
-                    <p className="dp-hero__step-t">the floor breathes by release</p>
+                    <p className="dp-hero__step-t">labor gates the release</p>
                     <p className="dp-hero__step-b">
                       EDD holds carts until a zone can afford the craft, and
-                      the breaches get signed, not hidden.
+                      breaches are recorded, not hidden.
                     </p>
                   </div>
                 </div>
@@ -389,10 +385,10 @@ export default function DespatchPage() {
             </p>
             <h2 className="display dp__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">The fixes that matter,</span>
+                <span className="wl__t">The three fixes,</span>
               </span>
               <span className="wl" style={{ "--i": 1 } as React.CSSProperties}>
-                <span className="wl__t">kept in the engine.</span>
+                <span className="wl__t">and why they matter.</span>
               </span>
             </h2>
             <p className="lede dp__lede" data-fill>
@@ -464,7 +460,7 @@ export default function DespatchPage() {
                     A zone spends only the picker-seconds it owns: one craft
                     leaves the moment the crew can afford tour plus{" "}
                     {CRAFT_OVERHEAD_SEC}s of marshal and hand-off. Where pacing
-                    runs late, the plan names the batches . {" "}
+                    runs late, the plan names the batches in{" "}
                     <span className="mono">breaches[]</span>, not a footnote.
                   </p>
                 </article>
@@ -481,18 +477,17 @@ export default function DespatchPage() {
             </p>
             <h2 className="display dp__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">Three days.</span>
+                <span className="wl__t">Three days,</span>
               </span>
               <span className="wl" style={{ "--i": 1 } as React.CSSProperties}>
-                <span className="wl__t">Six windows.</span>
+                <span className="wl__t">six windows.</span>
               </span>
             </h2>
             <p className="lede dp__lede" data-fill>
               The worked trio, run live in your browser by the same
               deterministic engine the tests grade. Flip the day, drag the
               freeze window across its sweep, and watch carts, waits, and
-              lateness answer in milliseconds, the trade, felt rather than
-              narrated.
+              lateness answer in milliseconds.
             </p>
 
             <DespatchHall profiles={HALL_PROFILES} tabu={HALL_TABU} />
@@ -575,15 +570,16 @@ export default function DespatchPage() {
                 traversal proxy the whole family shares: sweep the front
                 cross-aisle, walk each visited aisle to its deepest pick and
                 back, stop once per face. The same seconds that build the
-                saved-percent are the ones the release gate charges the zones
-                . {" "}
+                 saved-percent are the ones the release gate charges the
+                 zones.{" "}
                 <span className="mono">craft = tour + {CRAFT_OVERHEAD_SEC}s</span>{" "}
                , so no half of the engine can flatter the other.
               </p>
               <p className="dp__law-note" data-fill>
                 Two rules sit above the batching. The window: an order is
                 visible only once it has landed, and everything landed
-                publishes at the freeze, v0.2's honesty about time. The gate:
+                publishes at the freeze — no order is visible before it
+                lands. The gate:
                 a batch rides its home zone's crew, one picker ×{" "}
                 {LINES_PER_PICKER_HOUR} lines/hour, with the craft counted the
                 moment the cart rolls, never before its publish tick. December's
@@ -599,7 +595,7 @@ export default function DespatchPage() {
           </div>
         </section>
 
-        {/* ---------- the bench: dark, honest, dated by data ---------- */}
+        {/* ---------- the bench band: dark, dated by data ---------- */}
         <section className="section section--pad console" id="bench">
           <div className="wrp">
             <p className="eyebrow">
@@ -618,7 +614,7 @@ export default function DespatchPage() {
               moving. Every row re-checks byte-level determinism: two full
               passes of the same day must serialize identically, or the row
               can't call itself a result. The tabu pass runs its quadratic scan
-              only on day-sized inputs, beyond that, the honest cell is a dash,
+              only on day-sized inputs, beyond that, the cell is a dash,
               not a fudged number.
             </p>
 
@@ -706,16 +702,16 @@ export default function DespatchPage() {
             </p>
             <h2 className="display dp__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">Some doors</span>
+                <span className="wl__t">What it</span>
               </span>
               <span className="wl" style={{ "--i": 1 } as React.CSSProperties}>
-                <span className="wl__t">stay shut.</span>
+                <span className="wl__t">doesn&apos;t do.</span>
               </span>
             </h2>
             <p className="lede dp__lede" data-fill>
               The family sheet drew the scope fences before the first line of
-              engine code. They are what keep one unit small enough to read in
-              an afternoon, and honest about what it is.
+              engine code. They keep one unit small enough to read in
+              an afternoon, and clear about what it is not.
             </p>
 
             <div className="dp__fences">
@@ -1072,7 +1068,7 @@ function GlyphPace() {
       </text>
 
       <text className="dp__pb-lab" x={left - 18} y={H - 4} textAnchor="start">
-        peak queue in a zone, the release gate's word, not a promise
+        peak queue in a zone, as the release gate records it
       </text>
     </svg>
   );

@@ -84,7 +84,7 @@ export default function DcsimPage() {
           <div className="wrp dc-split">
             <div>
               <p className="eyebrow">divert</p>
-              <h2 className="display dc-h">The floor still names the lane.</h2>
+              <h2 className="display dc-h">The floor names the lane either way.</h2>
               <p className="lede">
                 Same pieces under every policy, because the law does not ask who released them. Tall to
                 L03, metal to L02, off-weight to reject, the rest to L01.
