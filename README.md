@@ -13,7 +13,7 @@ Status: **v1.0.0** — the yard ships. Protocol v1 is frozen (families
 append, numbers never move), the client library and spur speak the
 whole surface, and the bench rod prints honest numbers: pub/sub, durable
 streams ("lanes"), KV, the Yardmaster lens, token auth with TLS sessions.
-See it laid out end to end: https://sukrutn.github.io/switchyard-site/
+See it laid out end to end: https://sukrutn.github.io/switchyard/
 — one page covering the laws, the numbers, the tour and the quickstart.
 
 ## Quickstart
@@ -130,6 +130,7 @@ internal/linehost      the linehost bridge: minimal Modbus TCP client + talker
 docs/PROTOCOL.md       the whole wire contract
 scripts/demo.ps1       reproducible bring-up
 scripts/bench.ps1      reproducible numbers (throwaway yard, full teardown)
+site/                  the showcase site + the TS engine family (Next.js; Pages at /switchyard/)
 ```
 
 ## Design notes
@@ -213,7 +214,7 @@ version — the yardmaster cannot write a single byte to the yard.
 ## The linehost — hosting a line
 
 A sorting line's supervisor is a switchyard client. `linehost` hosts the
-fluxline line (see [SukrutN/fluxline-plc](https://github.com/SukrutN/fluxline-plc)):
+fluxline line (see the [fluxline program](https://github.com/SukrutN/fluxline/tree/main/engine)):
 it consumes release work from a durable lane, speaks it to the line's
 Modbus TCP register surface — the host command block — and journals every
 verdict the floor hands back to the same lane:
@@ -255,8 +256,9 @@ against a real yard.
 
 ## Contributing
 
-PR-based flow, conventional commits, CI (fmt, vet, test -race) gates
-every merge — see [CONTRIBUTING.md](CONTRIBUTING.md).
+PR-based flow, conventional commits, CI (fmt, vet, race tests, the site's
+engine suite, and the WES/waybill integrations against this repo's own yard)
+gates every merge — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
