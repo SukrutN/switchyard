@@ -1,0 +1,649 @@
+/* ============================================================
+   foreman — the unit-06 page voice. Shares the site's paper,
+   ink, and signal; adds the labor-plan's own furniture: the
+   ledger strip, the run charts, the heat strip, the
+   waterfalls, the casing table.
+   ============================================================ */
+
+/* ---------- hero ---------- */
+
+.fm-hero {
+  padding-block: clamp(2rem, 4vw, 3.5rem) 0;
+}
+
+.fm-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  background: var(--paper-raise);
+}
+
+.fm-stat {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.1rem;
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.fm-stat:nth-child(3n) {
+  border-right: 0;
+}
+
+.fm-stat:nth-child(-n + 3) {
+  border-top: 0;
+}
+
+.fm-stat__k {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  color: var(--ink-50);
+}
+
+.fm-stat__v {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.5rem);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.fm-stat--signal .fm-stat__v {
+  color: var(--signal);
+}
+
+@media (max-width: 720px) {
+  .fm-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fm-stat:nth-child(3n) {
+    border-right: 1px solid var(--line);
+  }
+  .fm-stat:nth-child(2n) {
+    border-right: 0;
+  }
+  .fm-stat:nth-child(-n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .fm-stat:nth-child(-n + 2) {
+    border-top: 0;
+  }
+}
+
+/* ---------- section furniture ---------- */
+
+.fm__title {
+  font-size: var(--step-2);
+  line-height: 1.05;
+  margin-top: 0.6rem;
+}
+
+.fm__lede {
+  max-width: 58ch;
+  margin-top: 0.9rem;
+}
+
+.fm__fig {
+  margin-top: 2.2rem;
+}
+
+.fm__fig--wide svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fm__caption {
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  color: var(--ink-70);
+  max-width: 68ch;
+}
+
+.fm__caption-k {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  color: var(--signal-ink);
+  margin-right: 0.6rem;
+}
+
+/* ---------- fig 1: ledger ---------- */
+
+.fm__bar {
+  fill: color-mix(in srgb, var(--ink) 26%, var(--paper));
+}
+
+.fm__bar:hover {
+  fill: color-mix(in srgb, var(--ink) 55%, var(--paper));
+}
+
+.fm__model {
+  fill: none;
+  stroke: var(--signal-ink);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 5;
+  stroke-linecap: round;
+}
+
+.fm__forecast {
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fm__divide {
+  stroke: var(--signal);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.55;
+}
+
+.fm__event {
+  stroke: var(--ink-50);
+  stroke-width: 1;
+}
+
+.fm__event--soon {
+  stroke: var(--signal);
+  stroke-width: 1.4;
+}
+
+.fm__event-lab {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  fill: var(--ink-70);
+}
+
+.fm__axelab {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  fill: var(--ink-50);
+  letter-spacing: 0.06em;
+}
+
+/* ---------- stage strip ---------- */
+
+.fm__stages {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 2.2rem;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+@media (max-width: 900px) {
+  .fm__stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.fm__stage {
+  background: var(--paper);
+  padding: 1.05rem 1rem 1.1rem;
+}
+
+.fm__stage-n {
+  color: var(--signal);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.fm__stage-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
+}
+
+.fm__stage-note {
+  font-size: 0.8rem;
+  color: var(--ink-70);
+  margin-top: 0.3rem;
+  line-height: 1.45;
+}
+
+/* ---------- fig 2: run charts ---------- */
+
+.fm__runs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(236px, 1fr));
+  gap: 1px;
+  margin-top: 2.2rem;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.fm__run {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--paper);
+  padding: 0.2rem 0 0.35rem;
+}
+
+.fm__run-base {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.fm__run-line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 45%, var(--paper));
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fm__run-dot {
+  fill: var(--signal);
+}
+
+.fm__run-dot:hover {
+  r: 5;
+}
+
+.fm__run-name {
+  font-family: var(--font-ui), system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.fm__run-code,
+.fm__run-wk,
+.fm__fall-lab {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  fill: var(--ink-50);
+}
+
+.fm__run-mape {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  fill: var(--signal-ink);
+}
+
+/* ---------- fig 3: heat strip ---------- */
+
+.fm__heat {
+  margin-top: 2.2rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.fm__heat-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) repeat(12, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.fm__heat-row + .fm__heat-row {
+  border-top: 1px solid var(--line);
+}
+
+.fm__heat-row--head {
+  background: var(--paper-raise);
+  border-bottom: 1px solid var(--line);
+}
+
+.fm__heat-zone {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.8rem;
+  border-right: 1px solid var(--line);
+  min-height: 2.4rem;
+}
+
+.fm__heat-zone--head {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-50);
+}
+
+.fm__heat-run {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.fm__heat-code {
+  color: var(--ink-50);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.fm__heat-shift {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  color: var(--signal-ink);
+}
+
+.fm__heat-week {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: var(--ink-70);
+  padding-block: 0.4rem;
+}
+
+.fm__heat-week--peak {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+.fm__cell {
+  display: block;
+  border-left: 1px solid color-mix(in srgb, var(--paper) 65%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--paper) 65%, transparent);
+}
+
+.fm__cell:hover {
+  outline: 1px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.fm__cell--peak {
+  position: relative;
+}
+
+.fm__cell--peak::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0 -1px -1px;
+  border-left: 2px solid var(--ink);
+  pointer-events: none;
+}
+
+.fm__heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.8rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-50);
+}
+
+.fm__heat-swatch {
+  display: inline-block;
+  width: 2.2rem;
+  height: 0.7rem;
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  .fm__heat-row {
+    grid-template-columns: minmax(112px, 140px) repeat(12, minmax(0, 1fr));
+  }
+  .fm__heat-run {
+    font-size: 0.7rem;
+  }
+}
+
+/* ---------- fig 4: waterfalls ---------- */
+
+.fm__falls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(236px, 1fr));
+  gap: 1px;
+  margin-top: 2.2rem;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.fm__fall {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--paper);
+  padding: 0.2rem 0 0.35rem;
+}
+
+.fm__fall-base {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.fm__fall-forecast {
+  fill: color-mix(in srgb, var(--ink) 26%, var(--paper));
+}
+
+.fm__fall-actual {
+  fill: var(--ink);
+}
+
+.fm__fall-delta--up {
+  fill: var(--signal);
+}
+
+.fm__fall-delta--down {
+  fill: color-mix(in srgb, var(--signal-ink) 42%, var(--paper));
+}
+
+.fm__fall-num {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  fill: var(--ink-70);
+}
+
+.fm__fall-num--up {
+  fill: var(--signal-ink);
+}
+
+.fm__scope-note {
+  margin-top: 1.4rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  background: var(--paper-raise);
+  font-size: 0.88rem;
+}
+
+/* ---------- fig 5: the casing table ---------- */
+
+.fm__table-wrap {
+  margin-top: 2.2rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.fm__table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--paper);
+  font-size: 0.88rem;
+}
+
+.fm__table th {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  color: var(--ink-50);
+  text-align: left;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.fm__table td {
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.fm__table tbody tr:first-child td {
+  border-top: 0;
+}
+
+.fm__table th.num,
+.fm__table td.num {
+  text-align: right;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.fm__table tfoot td {
+  background: var(--paper-raise);
+  font-weight: 700;
+}
+
+.fm__spill {
+  color: var(--signal-ink);
+}
+
+.fm__floors {
+  margin-top: 1.4rem;
+  max-width: 72ch;
+}
+
+.fm__floors-note {
+  font-size: 0.88rem;
+  color: var(--ink-70);
+  line-height: 1.55;
+}
+
+/* ---------- fig 6: the tie-out ---------- */
+
+.fm__tie {
+  margin-top: 2.2rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.fm__tie-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 5rem 6rem minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: baseline;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.fm__tie-row:first-child {
+  border-top: 0;
+}
+
+.fm__tie-row--fail {
+  outline: 2px solid var(--signal);
+  outline-offset: -2px;
+}
+
+.fm__tie-run {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.fm__tie-num {
+  font-size: 0.95rem;
+}
+
+.fm__tie-ok {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-70);
+  text-align: right;
+}
+
+.fm__tie-ok--fail {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+.fm__northspan {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+  margin-top: 1.6rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  .fm__northspan {
+    grid-template-columns: 1fr;
+  }
+  .fm__tie-row {
+    grid-template-columns: minmax(0, 1.2fr) 4.2rem 5.2rem;
+  }
+  .fm__tie-ok {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
+/* ---------- fences + lineage ---------- */
+
+.fm__fences {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.2rem, 3vw, 2.2rem);
+  margin-top: 2.2rem;
+}
+
+@media (max-width: 760px) {
+  .fm__fences {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fm__fence {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.fm__fence-n {
+  font-size: 0.8rem;
+  color: var(--signal);
+  padding-top: 0.2rem;
+}
+
+.fm__fence-name {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.fm__fence-body {
+  margin-top: 0.35rem;
+  font-size: 0.88rem;
+  color: var(--ink-70);
+  line-height: 1.55;
+}
+
+.fm__lineage {
+  margin-top: 2.4rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--line);
+}
+
+.fm__lineage-list {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.8rem;
+  max-width: 72ch;
+  font-size: 0.9rem;
+  color: var(--ink-70);
+  line-height: 1.55;
+}
+
+.fm__lineage-list li {
+  padding-left: 1.1rem;
+  text-indent: -1.1rem;
+}
+
+.fm__lineage-list li::before {
+  content: "→ ";
+  color: var(--signal);
+  text-indent: 0;
+  letter-spacing: 0;
+}

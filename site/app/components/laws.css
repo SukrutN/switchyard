@@ -1,0 +1,157 @@
+/* ============================================================
+   laws — the numbered stack: hairlines, big ghost numerals,
+   a sticky rail that follows the read like a drawing margin.
+   ============================================================ */
+
+.laws {
+  border-top: 1px solid var(--line);
+}
+
+.laws__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(2rem, 6vw, 7rem);
+  align-items: start;
+}
+
+/* ---------- sticky rail ---------- */
+
+.laws__rail {
+  position: relative;
+}
+
+.laws__rail-stick {
+  position: sticky;
+  top: 92px;
+}
+
+.laws__title {
+  margin-top: 0.9rem;
+  font-size: var(--step-3);
+}
+
+.laws__note {
+  margin-top: 1.2rem;
+  max-width: 26em;
+  color: var(--ink-70);
+}
+
+.laws__mono-inline {
+  font-size: 0.85em;
+  background: var(--paper-raise);
+  border: 1px solid var(--line);
+  padding: 0.1em 0.4em;
+}
+
+.laws__xhair {
+  margin-top: 2.6rem;
+  left: 24px;
+  top: auto;
+  position: relative;
+}
+
+.laws__xhair::before,
+.laws__xhair::after {
+  left: -24px;
+}
+
+.laws__xhair .xhair__x {
+  left: 30px;
+  top: -18px;
+}
+
+.laws__xhair .xhair__y {
+  left: 30px;
+  top: 8px;
+}
+
+/* ---------- the stack ---------- */
+
+.laws__stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.law {
+  position: relative;
+  display: grid;
+  grid-template-columns: clamp(84px, 10vw, 150px) 1fr;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  padding-block: clamp(1.75rem, 4vw, 3rem);
+  border-top: 1px solid var(--line);
+}
+
+.laws__stack > div:last-child .law {
+  border-bottom: 1px solid var(--line);
+}
+
+/* the ghost numeral: outline type that fills with the signal on hover */
+.law__num {
+  font-family: var(--font-ui), system-ui, sans-serif;
+  font-size: clamp(3.4rem, 6.5vw, 6.2rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--ink-30);
+  transition:
+    color 0.4s var(--ease),
+    -webkit-text-stroke-color 0.4s var(--ease);
+}
+
+.law:hover .law__num {
+  color: var(--signal);
+  -webkit-text-stroke-color: var(--signal);
+}
+
+.law__eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--ink-50);
+}
+
+.law__name {
+  margin-top: 0.55rem;
+  font-size: var(--step-2);
+}
+
+.law__body {
+  margin-top: 0.9rem;
+  color: var(--ink-70);
+  max-width: 36em;
+}
+
+.law__code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  color: var(--signal);
+  font-weight: 600;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 940px) {
+  .laws__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .laws__rail-stick {
+    position: static;
+  }
+
+  .laws__xhair {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .law {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .law__num {
+    font-size: 2.8rem;
+    -webkit-text-stroke-width: 1px;
+  }
+}

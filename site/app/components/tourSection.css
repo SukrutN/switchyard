@@ -1,0 +1,42 @@
+/* ============================================================
+   toursec — terminal panel beside its argument.
+   ============================================================ */
+
+.toursec__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: center;
+}
+
+.toursec__signal {
+  color: var(--signal-ink);
+}
+
+.toursec__title {
+  margin-top: 0.9rem;
+  font-size: var(--step-3);
+}
+
+.toursec__body {
+  margin-top: 1.2rem;
+  max-width: 30em;
+}
+
+.toursec__body--mut {
+  color: var(--ink-70);
+}
+
+.toursec__chip {
+  font-size: 0.85em;
+  background: var(--paper-raise);
+  border: 1px solid var(--line);
+  padding: 0.08em 0.4em;
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .toursec__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

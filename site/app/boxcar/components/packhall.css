@@ -1,0 +1,398 @@
+/* ============================================================
+   packhall — the interactive pack-out hall.
+   The diagram is drafting paper: hairline walls, boxes settled
+   by painter order, families told apart by ink, not by legend.
+   Second-signal law holds: signal paints objects and stamps,
+   text keeps the set-down ink.
+   ============================================================ */
+
+/* ---------- the profile tabs ---------- */
+
+.ph__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--line);
+}
+
+.ph__tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.25s var(--ease),
+    color 0.25s var(--ease);
+}
+
+.ph__tab:first-child {
+  border-left: 0;
+}
+
+.ph__tab:hover {
+  background: var(--paper-raise);
+}
+
+.ph__tab-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.ph__tab-meta {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+}
+
+.ph__tab--on {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ph__tab--on .ph__tab-meta {
+  color: color-mix(in srgb, var(--paper) 68%, transparent);
+}
+
+.ph__tab--on:hover {
+  background: var(--ink);
+}
+
+/* ---------- the stage: diagram left, ledger right ---------- */
+
+.ph__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  margin-top: clamp(1.25rem, 2.5vw, 2rem);
+  align-items: start;
+}
+
+/* ---------- the figure plate ---------- */
+
+.ph__figure {
+  background: var(--paper);
+  border: 1px solid var(--ink-30);
+  box-shadow: 9px 9px 0 rgba(22, 22, 26, 0.05);
+  padding: 0.6rem 1rem 1.1rem;
+}
+
+.ph__cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0.1rem 0.65rem;
+  border-bottom: 1px dashed var(--line);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-50);
+}
+
+.ph__replay {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--signal-ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ph__replay:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ph__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* the shell: drafting floor, wall stubs, dashed rim */
+
+.ph__grid polyline {
+  stroke: var(--line);
+  stroke-width: 0.5;
+}
+
+.ph__floor {
+  fill: color-mix(in srgb, var(--ink) 4%, var(--paper));
+  stroke: none;
+}
+
+.ph__vert polyline {
+  stroke: var(--ink-30);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 2.4;
+  fill: none;
+}
+
+.ph__rim {
+  stroke: var(--ink);
+  stroke-width: 0.9;
+  stroke-dasharray: 5 3;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* ---------- the boxes, family by family ----------
+   one face grammar: light top, mid right (the +x face),
+   deep left (the +y face); families only re-ink it. */
+
+.ph__box {
+  animation: ph-drop 0.62s var(--ease-rx) both;
+}
+
+.ph__f {
+  stroke: var(--ink);
+  stroke-width: 0.55;
+  stroke-linejoin: round;
+}
+
+.ph__f--top {
+  fill: color-mix(in srgb, var(--ink) 5%, var(--paper-raise));
+}
+
+.ph__f--right {
+  fill: color-mix(in srgb, var(--ink) 14%, var(--paper-raise));
+}
+
+.ph__f--left {
+  fill: color-mix(in srgb, var(--ink) 22%, var(--paper-raise));
+}
+
+/* fragile: the signal wash, quiet — tinted paper, set-down ink */
+
+.ph__box--fragile .ph__f--top {
+  fill: color-mix(in srgb, var(--signal) 14%, var(--paper-raise));
+}
+
+.ph__box--fragile .ph__f--right {
+  fill: color-mix(in srgb, var(--signal) 24%, var(--paper-raise));
+}
+
+.ph__box--fragile .ph__f--left {
+  fill: color-mix(in srgb, var(--signal) 34%, var(--paper-raise));
+}
+
+/* hazard: the one hot object on the sheet — full signal, ink line */
+
+.ph__box--hazard .ph__f--top {
+  fill: var(--signal);
+}
+
+.ph__box--hazard .ph__f--right {
+  fill: color-mix(in srgb, var(--signal) 72%, var(--ink));
+}
+
+.ph__box--hazard .ph__f--left {
+  fill: color-mix(in srgb, var(--signal) 52%, var(--ink));
+}
+
+.ph__box--hazard .ph__f {
+  stroke: var(--ink);
+}
+
+.ph__sku {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 1.05px;
+  fill: var(--ink-70);
+  text-anchor: middle;
+}
+
+.ph__box--fragile .ph__sku {
+  fill: var(--signal-ink);
+}
+
+.ph__box--hazard .ph__sku {
+  fill: var(--paper);
+}
+
+/* the drop: boxes fall the last bit into place, far ones first
+   (the per-box delay is set inline, in painter order) */
+
+@keyframes ph-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- the carton pager ---------- */
+
+.ph__pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.ph__pg {
+  padding: 0.32rem 0.6rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  color: var(--ink-70);
+  transition:
+    background 0.2s var(--ease),
+    color 0.2s var(--ease),
+    border-color 0.2s var(--ease);
+}
+
+.ph__pg:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.ph__pg--on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.ph__one {
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+}
+
+/* ---------- the ledger side ---------- */
+
+.ph__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  margin: 0;
+}
+
+.ph__stat {
+  padding: 0.8rem 1rem 0.9rem;
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+}
+
+.ph__stat:nth-child(2n) {
+  border-left: 0;
+}
+
+.ph__stat:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.ph__stat dt {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-50);
+}
+
+.ph__big {
+  margin: 0.35rem 0 0;
+  font-size: var(--step-2);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.ph__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 1.1rem;
+}
+
+.ph__chip {
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--line);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-70);
+}
+
+.ph__chip--bad {
+  border-color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 14%, var(--paper));
+  color: var(--signal-ink);
+}
+
+.ph__chip--note {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+}
+
+/* the wire: the solution as JSON, printed in the console band */
+
+.ph__wire {
+  margin: 1.1rem 0 0;
+  padding: 1.05rem 1.15rem;
+  background: var(--console-bg);
+  color: var(--console-fg);
+  border: 1px solid var(--console-line);
+  font-size: 0.74rem;
+  line-height: 1.7;
+  overflow: auto;
+  max-height: 460px;
+  white-space: pre;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 980px) {
+  .ph__stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ph__tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .ph__tab {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .ph__tab:first-child {
+    border-top: 0;
+  }
+}
+
+/* ---------- reduced motion: boxes arrive settled ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ph__box {
+    animation: none;
+  }
+
+  .ph__tab,
+  .ph__pg {
+    transition: none;
+  }
+}

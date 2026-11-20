@@ -1,0 +1,234 @@
+/* ============================================================
+   motion — the wiring for the borrowed grammars. No library.
+   Names below are wired from Motion.tsx; the visual debt is
+   repaid with only tokens and hairlines.
+   ============================================================ */
+
+/* ---------- 1. headline wipes (enerblock's marker pass) ---------- */
+
+[data-anim="wipe"] .wl {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  width: max-content;
+  max-width: 100%;
+}
+
+[data-anim="wipe"] .wl__t {
+  display: inline-block;
+  opacity: 0;
+}
+
+/* the marker: grows across, holds a beat, slides off; the words
+   step in behind it. Stagger follows --i, set per line in JSX. */
+[data-anim="wipe"].wipe-in .wl::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  z-index: 2;
+  pointer-events: none;
+  transform-origin: left center;
+  animation: w-marker var(--wipe-ms, 1150ms) ease-in-out forwards;
+  animation-delay: calc(var(--i, 0) * 110ms);
+}
+
+[data-anim="wipe"].wipe-in .wl__t {
+  animation: w-appears var(--wipe-ms, 1150ms) ease-in-out forwards;
+  animation-delay: calc(var(--i, 0) * 110ms);
+}
+
+@keyframes w-marker {
+  0% {
+    transform: translateX(-101%);
+  }
+  42% {
+    transform: translateX(0);
+  }
+  52% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(101%);
+  }
+}
+
+@keyframes w-appears {
+  0%,
+  50% {
+    opacity: 0;
+  }
+  62%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ---------- 2. scroll-fill bodies (tresmares' ink fill) ---------- */
+
+[data-fill] .fill-w {
+  will-change: opacity;
+}
+
+/* ---------- 3. the tour lens (enerblock's cross-hair) ---------- */
+
+.lens {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+  z-index: 3;
+}
+
+.lens--on {
+  opacity: 1;
+}
+
+.lens__v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 71, 8, 0.28);
+  will-change: transform;
+}
+
+.lens__h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(255, 71, 8, 0.28);
+  will-change: transform;
+}
+
+.lens__dot {
+  position: absolute;
+  top: -3.5px;
+  left: -3.5px;
+  width: 7px;
+  height: 7px;
+  background: var(--signal);
+  will-change: transform;
+}
+
+.lens__chip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.18rem 0.4rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: rgba(236, 235, 231, 0.75);
+  background: rgba(16, 16, 19, 0.82);
+  border: 1px solid rgba(255, 71, 8, 0.35);
+  white-space: nowrap;
+  will-change: transform;
+}
+
+/* ---------- 4. the banner: fold + progress hairline ---------- */
+
+.site-header {
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-header {
+    transition: transform 0.45s var(--ease);
+  }
+}
+
+.site-header.header--fold {
+  transform: translateY(-101%);
+}
+
+.site-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--signal);
+  transform: scaleX(var(--doc-prog, 0));
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+/* ---------- 5. link wipe underline (tresmares' ink swipe) ---------- */
+
+.wl-link {
+  position: relative;
+}
+
+.wl-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.55s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.wl-link:hover::after,
+.wl-link:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+/* ---------- 6. gauge values rise out of their own slot ---------- */
+
+.gauge__value {
+  overflow: hidden;
+}
+
+.gauge__value .countup,
+.gauge__value > * {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(112%);
+  transition:
+    transform 0.85s var(--ease-rx),
+    opacity 0.5s var(--ease-rx);
+}
+
+.reveal.in .gauge__value .countup,
+.reveal.in .gauge__value > * {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- reduced motion: hand the plain page back ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-anim="wipe"] .wl__t {
+    opacity: 1;
+    animation: none !important;
+  }
+
+  [data-anim="wipe"] .wl::after {
+    display: none;
+  }
+
+  .site-header {
+    transition: none;
+    transform: none;
+  }
+
+  .lens {
+    display: none;
+  }
+
+  [data-fill] .fill-w {
+    will-change: auto;
+  }
+}

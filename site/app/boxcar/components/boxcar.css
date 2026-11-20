@@ -1,0 +1,658 @@
+/* ============================================================
+   boxcar — the family page for unit 04 (cartonization).
+   Paper, ink, one signal. Hard offset shadows for the three
+   fix plates, a CSS-3D parcel for the hero, drafting grammar
+   for the diagrams. Reuses house primitives (.btn, .tick,
+   .hero__line, .wrp) and imports the glob below.
+   ============================================================ */
+
+/* ---------- hero ---------- */
+
+.bc-hero {
+  border-bottom: 1px solid var(--line);
+}
+
+.bc-hero__rig {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.bc-hero__rig-note {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+}
+
+/* ---------- section chrome ---------- */
+
+.bc__title {
+  margin-top: 0.9rem;
+}
+
+.bc__lede {
+  margin-top: 1.1rem;
+}
+
+/* ---------- the three fixes: hard-offset plates ---------- */
+
+.bc__fix-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.4rem, 2.8vw, 2.4rem);
+  margin-top: clamp(2.2rem, 4.5vw, 4rem);
+}
+
+.bc__fix {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper-raise);
+  border: 1px solid var(--ink-30);
+  box-shadow: 8px 8px 0 var(--ink);
+  padding: 1.3rem 1.4rem 1.4rem;
+  transition: box-shadow 0.3s var(--ease), translate 0.3s var(--ease);
+}
+
+.bc__fix:hover {
+  translate: 2px 2px;
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.bc__fix-n {
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  color: var(--signal-ink);
+  text-transform: uppercase;
+}
+
+.bc__fix-name {
+  margin-top: 0.5rem;
+  font-size: var(--step-1);
+}
+
+.bc__glyph {
+  margin-top: 1.1rem;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.bc__glyph-cap {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: var(--signal-ink);
+}
+
+.bc__f--top {
+  fill: color-mix(in srgb, var(--ink) 5%, var(--paper-raise));
+  stroke: var(--ink);
+  stroke-width: 0.55;
+  stroke-linejoin: round;
+}
+
+.bc__f--right {
+  fill: color-mix(in srgb, var(--ink) 14%, var(--paper-raise));
+  stroke: var(--ink);
+  stroke-width: 0.55;
+  stroke-linejoin: round;
+}
+
+.bc__f--left {
+  fill: color-mix(in srgb, var(--ink) 22%, var(--paper-raise));
+  stroke: var(--ink);
+  stroke-width: 0.55;
+  stroke-linejoin: round;
+}
+
+/* the ghost: a draft the gate refused — wireframe, dashed */
+.bc__ghost .bc__f {
+  fill: none;
+  stroke: var(--ink-30);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 2.4;
+}
+
+.bc__ghost .fx__sku {
+  fill: var(--ink-30);
+}
+
+.fx__floor {
+  fill: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  stroke: var(--ink-30);
+  stroke-width: 0.5;
+  stroke-dasharray: 3 2.4;
+}
+
+.fx__fall {
+  stroke: var(--signal);
+  stroke-width: 1.1;
+  fill: none;
+}
+
+.fx__head {
+  fill: var(--signal);
+  stroke: none;
+}
+
+.fx__no {
+  stroke: var(--signal);
+  stroke-width: 1.1;
+  stroke-dasharray: 0;
+}
+
+.fx__sku {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 2.3px;
+  fill: var(--ink-70);
+  text-anchor: middle;
+}
+
+/* ---------- the pack hall wrap ---------- */
+
+.bc-hall {
+  background: var(--paper);
+}
+
+.bc__hall-note {
+  margin-top: 1.4rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-50);
+}
+
+/* ---------- the selector law ---------- */
+
+.bc-law__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: start;
+}
+
+.bc__law-note {
+  margin-top: 0.3rem;
+  color: var(--ink-70);
+  max-width: 34em;
+}
+
+.bc__law-note .mono {
+  font-size: 0.85em;
+}
+
+.bc__law {
+  margin: 0;
+  padding: 1.5rem 1.6rem;
+  background: var(--console-bg);
+  color: var(--console-fg);
+  border: 1px solid var(--console-line);
+  box-shadow: 8px 8px 0 rgba(22, 22, 26, 0.09);
+  font-size: 0.78rem;
+  line-height: 2.05;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.bc__law b {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.bc__law .mut {
+  color: var(--console-mut);
+}
+
+/* ---------- the bench: dark band, honest timings ---------- */
+
+.bc__spark {
+  width: 100%;
+  height: auto;
+  margin-top: 2.2rem;
+}
+
+.bc__spark-line {
+  stroke: var(--console-fg);
+  stroke-width: 1.4;
+  fill: none;
+  stroke-linejoin: round;
+}
+
+.bc__spark-dot {
+  fill: var(--signal);
+}
+
+.bc__spark-axis {
+  stroke: var(--console-line);
+  stroke-width: 1;
+}
+
+.bc__spark-lab {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  fill: var(--console-mut);
+}
+
+.bc__spark-lab--ms {
+  fill: var(--console-fg);
+}
+
+.bc__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.9rem;
+  font-size: 0.8rem;
+}
+
+.bc__table th {
+  padding: 0.55rem 0.9rem 0.55rem 0;
+  border-bottom: 1px solid var(--ink-30);
+  text-align: left;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-50);
+  white-space: nowrap;
+}
+
+.bc__table td {
+  padding: 0.62rem 0.9rem 0.62rem 0;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bc__table th:not(:first-child),
+.bc__table td:not(:first-child) {
+  text-align: right;
+}
+
+.bc__table td:last-child {
+  padding-right: 0;
+}
+
+.bc__ok {
+  color: var(--signal-ink);
+  font-weight: 600;
+}
+
+.bc__note {
+  margin-top: 1.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-50);
+}
+
+/* dark-band overrides: the bench reads like the yard log */
+
+.console .bc__table th {
+  color: var(--console-mut);
+  border-bottom-color: var(--console-line);
+}
+
+.console .bc__table td {
+  border-bottom-color: var(--console-line);
+}
+
+.console .bc__ok {
+  color: var(--signal);
+}
+
+.console .bc__note {
+  color: var(--console-mut);
+}
+
+/* ---------- scope fences + lineage ---------- */
+
+.bc__fence {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  gap: 0.9rem;
+  padding-block: 1.15rem;
+  border-top: 1px solid var(--line);
+}
+
+.bc__fences {
+  margin-top: clamp(2rem, 4vw, 3.4rem);
+}
+
+.bc__fence:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.bc__fence-n {
+  font-size: 0.7rem;
+  color: var(--ink-30);
+  padding-top: 0.35rem;
+}
+
+.bc__fence-name {
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.bc__fence-body {
+  margin-top: 0.45rem;
+  color: var(--ink-70);
+  max-width: 52em;
+}
+
+.bc__fence-body a,
+.bc__git a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+  transition: text-decoration-color 0.25s var(--ease);
+}
+
+.bc__fence-body a:hover,
+.bc__git a:hover {
+  text-decoration-color: var(--signal);
+}
+
+.bc__git {
+  margin-top: 2.6rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--line);
+}
+
+.bc__git-head {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-50);
+}
+
+.bc__git-row {
+  margin-top: 1.05rem;
+  font-size: 0.8rem;
+  color: var(--ink-70);
+}
+
+.bc__git-row .mono {
+  font-size: 0.72rem;
+  color: var(--ink);
+}
+
+.bc__git-row a {
+  font-size: 0.72rem;
+  color: var(--signal-ink);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1080px) {
+  .bc__fix-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .bc-law__grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .bc__fix {
+    transition: none;
+  }
+
+  .bc__fix:hover {
+    translate: none;
+  }
+}
+
+/* ============================================================
+   hc — the CSS-3D parcel (cydstumpel's rotating box motif,
+   redressed in the yard's paper). One pose by default; the
+   pointer re-answers --rx/--ry; reduced motion keeps it still.
+   ============================================================ */
+
+.hc {
+  position: relative;
+  margin: 0;
+  padding: clamp(1rem, 3vw, 2rem) clamp(0.5rem, 2vw, 1.5rem);
+  user-select: none;
+}
+
+/* the plate: a hard-offset sheet the parcel sits on */
+.hc__plate {
+  position: absolute;
+  left: clamp(1rem, 6vw, 4rem);
+  right: clamp(1rem, 4vw, 3rem);
+  top: 12%;
+  bottom: 18%;
+  background: var(--paper-raise);
+  border: 1px solid var(--ink-30);
+  box-shadow: 10px 10px 0 rgba(22, 22, 26, 0.07);
+}
+
+.hc__plate-tag {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.75rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  color: var(--ink-50);
+}
+
+.hc__scene {
+  position: relative;
+  perspective: 1150px;
+  min-height: clamp(300px, 36vw, 420px);
+  display: flex;
+  align-items: center;
+  animation: hc-bob 9s var(--ease) infinite alternate;
+}
+
+@keyframes hc-bob {
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: translateY(5px);
+  }
+}
+
+.hc__box {
+  position: relative;
+  width: 300px;
+  max-width: 88%;
+  aspect-ratio: 300 / 165;
+  margin: auto;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, -24deg)) rotateY(var(--ry, 32deg));
+  transition: transform 0.45s var(--ease);
+}
+
+/* the six faces (half-sizes in px: 150 × 95 × 82) */
+
+.hc__face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--paper);
+  border: 1px solid var(--ink-30);
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.hc__face--front {
+  width: 300px;
+  height: 165px;
+  padding: 0.9rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transform: translate(-50%, -50%) rotateY(0deg) translateZ(95px);
+}
+
+.hc__face--back {
+  width: 300px;
+  height: 165px;
+  padding: 0.9rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  transform: translate(-50%, -50%) rotateY(180deg) translateZ(95px);
+}
+
+.hc__face--right {
+  width: 190px;
+  height: 165px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  transform: translate(-50%, -50%) rotateY(90deg) translateZ(150px);
+}
+
+.hc__face--left {
+  width: 190px;
+  height: 165px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%) rotateY(-90deg) translateZ(150px);
+}
+
+.hc__face--top {
+  width: 300px;
+  height: 190px;
+  transform: translate(-50%, -50%) rotateX(90deg) translateZ(82px);
+}
+
+.hc__face--bottom {
+  width: 300px;
+  height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%) rotateX(-90deg) translateZ(82px);
+}
+
+/* top: the tape line */
+.hc__tape {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 46px;
+  height: 100%;
+  transform: translateX(-50%);
+  background: var(--signal);
+  opacity: 0.92;
+}
+
+.hc__plate-line {
+  position: absolute;
+  left: 50%;
+  top: 0.55rem;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 90%;
+  text-align: center;
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+  color: var(--ink-50);
+}
+
+/* front: brand, bars, haul line */
+.hc__brand {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 1rem;
+}
+
+.hc__brand i {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--ink-50);
+}
+
+.hc__bars {
+  width: 62%;
+  height: 30px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 2px,
+    transparent 2px 5px,
+    var(--ink) 5px 6px,
+    transparent 6px 10px
+  );
+}
+
+.hc__bars--soft {
+  opacity: 0.45;
+  width: 55%;
+}
+
+.hc__haul {
+  font-size: 0.56rem;
+  letter-spacing: 0.22em;
+  color: var(--ink-70);
+}
+
+/* stamps */
+.hc__stamp {
+  display: inline-block;
+  padding: 0.34em 0.55em;
+  border: 2px solid var(--signal-ink);
+  color: var(--signal-ink);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  line-height: 1.6;
+  transform: rotate(-7deg);
+}
+
+.hc__stamp--signal {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.hc__side-note {
+  display: block;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-50);
+  text-align: center;
+}
+
+.hc__cap {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.55rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-50);
+}
+
+.hc__cap--signal {
+  color: var(--signal-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc__scene {
+    animation: none;
+  }
+
+  .hc__box {
+    transition: none;
+  }
+}
