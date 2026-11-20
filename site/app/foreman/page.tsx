@@ -356,7 +356,7 @@ export default function ForemanPage() {
                   </a>
                   <a
                     className="hero__cta hero__cta--ghost"
-                    href="https://github.com/SukrutN/switchyard-site/blob/main/engine/foreman-engine/README.md"
+                    href="https://github.com/SukrutN/switchyard/blob/main/site/engine/foreman-engine/README.md"
                     target="_blank"
                     rel="noreferrer"
                   >

@@ -2,7 +2,7 @@
 // basePath applies only in CI builds (Pages serves the repo under its
 // own name); local dev and local builds ride the root, like dev should.
 const isCI = process.env.GITHUB_ACTIONS === "true";
-const BASE_PATH = "/switchyard-site";
+const BASE_PATH = "/switchyard";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

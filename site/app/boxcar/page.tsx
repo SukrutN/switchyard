@@ -221,7 +221,7 @@ const libTick = CARTON_LIBRARY_RAW.map((c) => ({
 }));
 
 const ENGINE_README =
-  "https://github.com/SukrutN/switchyard-site/blob/main/engine/boxcar-engine/README.md";
+  "https://github.com/SukrutN/switchyard/blob/main/site/engine/boxcar-engine/README.md";
 
 /* the selector's law, quoted with the constants' own values . 
    change src/constants.ts and the sheet repoints itself. */
@@ -690,7 +690,7 @@ export default function BoxcarPage() {
                     and the site ships the same solution bytes the tests
                     grade.{" "}
                     <a
-                      href="https://github.com/SukrutN/switchyard-site/blob/main/package.json"
+                      href="https://github.com/SukrutN/switchyard/blob/main/site/package.json"
                       target="_blank"
                       rel="noreferrer"
                     >

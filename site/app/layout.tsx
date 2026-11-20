@@ -20,7 +20,7 @@ const mono = JetBrains_Mono({
 // absolute social URL. In CI builds Next applies the basePath itself,
 // so give it the bare origin there; local builds get the full URL.
 const SITE_ORIGIN = "https://sukrutn.github.io";
-const PAGE_PATH = "/switchyard-site/";
+const PAGE_PATH = "/switchyard/";
 const SITE_URL = SITE_ORIGIN + PAGE_PATH;
 
 export const metadata: Metadata = {

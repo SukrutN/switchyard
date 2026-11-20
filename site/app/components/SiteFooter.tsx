@@ -92,7 +92,7 @@ export default function SiteFooter() {
 
         <div className="footer__base">
           <span className="mono footer__base-line">
-            switchyard-site · next.js, exported static, deployed from main
+            site/ in the switchyard repo · next.js, exported static, deployed from main
           </span>
           <span className="mono footer__base-line">
             <a

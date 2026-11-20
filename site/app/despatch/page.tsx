@@ -196,7 +196,7 @@ const libTick = CATALOG.map((c) => ({
 }));
 
 const ENGINE_README =
-  "https://github.com/SukrutN/switchyard-site/blob/main/engine/despatch-engine/README.md";
+  "https://github.com/SukrutN/switchyard/blob/main/site/engine/despatch-engine/README.md";
 
 /* the despatch law, quoted with the constants' own values . 
    change src/constants.ts and the sheet repoints itself. */
