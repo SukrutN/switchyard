@@ -93,7 +93,7 @@ export default function HeroCarton({ carton }: { carton: CartonRaw }) {
             <span className="hc__bars hc__bars--soft" />
           </div>
 
-          {/* bottom: the dock stamp (rarely seen, honestly) */}
+          {/* bottom: the dock stamp (rarely seen) */}
           <div className="hc__face hc__face--bottom">
             <span className="mono hc__side-note">
               PAYLOAD {carton.payloadKg.toFixed(1)} KG · TARE{" "}

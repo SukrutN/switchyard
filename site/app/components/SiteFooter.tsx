@@ -1,6 +1,6 @@
 import "./footer.css";
 
-/** The house sign. Three hairline columns and one honesty line. */
+/** The house sign: three hairline columns and the provenance line. */
 export default function SiteFooter() {
   return (
     <footer className="footer" id="footer">

@@ -10,7 +10,7 @@
       four inline-acking zone crews, boots the WES;
    4. stages ~300 synthetic orders onto the orders lane (the
       average day re-stamped across waves), runs the shift;
-   5. prints the honest stat sheet — staged, freezes, batches,
+   5. prints the stat sheet — staged, freezes, batches,
       quarantines, work rows per zone, the board's watermark —
       then says goodbye, kills the yard, and removes the
       scratch dir. Nothing here has timestamps in DATA; wall
@@ -111,7 +111,7 @@ function waitPort(port: number, timeoutMs: number): Promise<void> {
 
 function killTree(child: ChildProcess): void {
   // `go run` runs the server as a grandchild; on Windows the
-  // terminate-the-tree ritual is the only honest kill.
+  // terminate-the-tree ritual is the only reliable kill.
   if (process.platform === "win32" && child.pid !== undefined) {
     spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
     return;
@@ -186,7 +186,7 @@ async function main(): Promise<void> {
     const stats = await wes.finalize(day.horizonSec);
     const runMs = Math.round(performance.now() - t0) - stageMs;
 
-    // the honest stat sheet
+    // the stat sheet
     const board = await yard.kvGet("despatch-pace", "board");
     const b = decodeBoardRow(board.payload);
     console.log("── the stat sheet ─────────────────────────────");

@@ -18,7 +18,7 @@
       856 notice — with the control numbers reserved as KV on
       `waybill-pace`, then re-reads them through the yard's
       own KV and parses them back;
-   7. prints the honest stat sheet, says goodbye, kills the
+   7. prints the stat sheet, says goodbye, kills the
       yard, removes the scratch dir.
 
    Nothing here carries timestamps in DATA; the wall clock
@@ -101,7 +101,7 @@ function waitPort(port: number, timeoutMs: number): Promise<void> {
 
 function killTree(child: ChildProcess): void {
   // `go run` runs the server as a grandchild; on Windows the
-  // terminate-the-tree ritual is the only honest kill.
+  // terminate-the-tree ritual is the only reliable kill.
   if (process.platform === "win32" && child.pid !== undefined) {
     spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
     return;
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
       decodeControls(kv945.payload).isa === c945.isa &&
       decodeControls(kv856.payload).isa === c856.isa;
 
-    /* ---------- the honest stat sheet ---------- */
+    /* ---------- the stat sheet ---------- */
 
     const orders = await yard.rows(LANES.orders);
     const dead = await yard.rows(LANES.dead);

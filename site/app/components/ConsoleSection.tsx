@@ -9,8 +9,8 @@ import "./consoleSection.css";
  * (2026-10-22T17:28:00Z), with buttons for the recorded bring-up. Wire
  * receipts print spur's own words; every replayed op costs the journal
  * delta the yard actually charged, measured live during the bring-up.
- * The section's copy keeps the honesty law: this is a replay, the live
- * console runs where the binary runs.
+ * The section's copy says plainly: this is a replay, the live console
+ * runs where the binary runs.
  */
 export default function ConsoleSection() {
   return (

@@ -97,7 +97,7 @@ const tabus: Record<string, TabuRun> = Object.fromEntries(
   DAYS.map((d) => [d.profile.key, tabuImprove(runs[d.profile.key], d.orders, SLOTTING)]),
 );
 
-/* the hero rig's tour: the average day's longest walk, honest teeth */
+/* the hero rig's tour: the average day's longest tour, real teeth */
 const AVG = dayByKey("average-day");
 const heroBatch = [...runs["average-day"].batches].sort(
   (a, b) => b.ledger.tourSec - a.ledger.tourSec,
@@ -213,7 +213,7 @@ window w → freeze: everything landed publishes
 
 release key: EDD · home-zone crew ${LINES_PER_PICKER_HOUR} lines/h
   craft = tour + ${CRAFT_OVERHEAD_SEC}s  ·  never before its publish tick
-honesty pass: releases re-walked by zone · collision +60s
+re-check pass: releases re-walked by zone · collision +60s
 
 tabu: relocate + swap · tenure ${TABU_TENURE} · Δ reported, never promised`;
 
@@ -1054,7 +1054,7 @@ function GlyphPace() {
         />
       ))}
 
-      {/* the counts, honest where they end */}
+      {/* the counts, as they end */}
       <text className="dp__pb-lab" x={left + un * 22 + 6} y={37} textAnchor="start">
         {un} carts
       </text>

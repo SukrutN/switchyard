@@ -3,7 +3,7 @@ import "./milestones.css";
 
 /**
  * The birthlog, straight from CHANGELOG.md, the releases landed
- * July 18 through October 21, a chronology the timeline keeps honest.
+ * July 18 through October 21, in order.
  */
 const MILESTONES = [
   { v: "0.1.0", label: "M1 · pub/sub core", note: "wire v1, the subject charter, the yard, spur, and the suite over real sockets." },
@@ -11,7 +11,7 @@ const MILESTONES = [
   { v: "0.3.0", label: "M2 · kv", note: "a bucket is a lane; every write gets a receipt, every read returns the same on-disk bytes." },
   { v: "0.4.0", label: "M3 · the yardmaster console", note: "the yard's state on the wire, read-only: a lens, not a lever." },
   { v: "0.5.0", label: "M4 · the gate and the wrap", note: "a token before HELLO; TLS wrapping every byte of every session." },
-  { v: "0.6.0", label: "M4 · yardstick", note: "the honest bench rod, plus the drain bug it found and the fix that followed." },
+  { v: "0.6.0", label: "M4 · yardstick", note: "the bench rod, plus the drain bug it found and the fix that followed." },
   { v: "1.0.0", label: "the promise release", note: "the surface is frozen: families append, op numbers never move. The yard ships." },
 ];
 
