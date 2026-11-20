@@ -1,0 +1,74 @@
+{
+  "generated": "2026-10-25",
+  "note": "median of 3 async passes after one warm-up; MemoryYard journaled writes; determinism re-checked per row; engine equivalent timed beside it",
+  "dayRows": [
+    {
+      "key": "average-day",
+      "orders": 204,
+      "wesMs": 41.91,
+      "freezes": 172,
+      "quarantines": 0
+    },
+    {
+      "key": "rush-morning",
+      "orders": 268,
+      "wesMs": 56.74,
+      "freezes": 160,
+      "quarantines": 0
+    },
+    {
+      "key": "seasonal-spike",
+      "orders": 426,
+      "wesMs": 161.22,
+      "freezes": 200,
+      "quarantines": 0
+    }
+  ],
+  "runs": [
+    {
+      "orders": 100,
+      "wesMs": 18.45,
+      "onlineMs": 1.3,
+      "perOrderUs": 184.5,
+      "freezes": 86,
+      "releasedRows": 89,
+      "deterministic": true
+    },
+    {
+      "orders": 200,
+      "wesMs": 45.1,
+      "onlineMs": 2.64,
+      "perOrderUs": 225.5,
+      "freezes": 168,
+      "releasedRows": 176,
+      "deterministic": true
+    },
+    {
+      "orders": 400,
+      "wesMs": 157.02,
+      "onlineMs": 5.55,
+      "perOrderUs": 392.55,
+      "freezes": 340,
+      "releasedRows": 354,
+      "deterministic": true
+    },
+    {
+      "orders": 800,
+      "wesMs": 588.87,
+      "onlineMs": 15.37,
+      "perOrderUs": 736.09,
+      "freezes": 682,
+      "releasedRows": 708,
+      "deterministic": true
+    },
+    {
+      "orders": 1600,
+      "wesMs": 3083.69,
+      "onlineMs": 56.05,
+      "perOrderUs": 1927.31,
+      "freezes": 1366,
+      "releasedRows": 1415,
+      "deterministic": true
+    }
+  ]
+}

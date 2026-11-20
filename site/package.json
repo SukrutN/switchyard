@@ -1,0 +1,36 @@
+{
+  "name": "switchyard-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The showcase website for switchyard — the yard in the operator's own voice.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "test": "node --test \"engine/boxcar-engine/tests/*.test.ts\" \"engine/despatch-engine/tests/*.test.ts\" \"engine/despatch-wes/tests/*.test.ts\" \"engine/waybill/tests/*.test.ts\" \"engine/foreman-engine/tests/*.test.ts\" \"engine/gangway-engine/tests/*.test.ts\" \"engine/dcsim/tests/*.test.ts\"",
+    "bench": "node engine/boxcar-engine/bench/bench.ts",
+    "bench:boxcar": "node engine/boxcar-engine/bench/bench.ts",
+    "bench:despatch": "node engine/despatch-engine/bench/bench.ts",
+    "bench:wes": "node engine/despatch-wes/bench/bench.ts",
+    "lock": "node engine/boxcar-engine/bench/run.ts",
+    "lock:boxcar": "node engine/boxcar-engine/bench/run.ts",
+    "lock:despatch": "node engine/despatch-engine/bench/run.ts",
+    "lock:wes": "node engine/despatch-wes/fixtures/lock.ts",
+    "lock:waybill": "node engine/waybill/fixtures/lock.ts",
+    "lock:foreman": "node engine/foreman-engine/fixtures/lock.ts",
+    "run:wes": "node engine/despatch-wes/integration/run.ts",
+    "run:waybill": "node engine/waybill/integration/run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0"
+  }
+}

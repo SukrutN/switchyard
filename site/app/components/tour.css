@@ -1,0 +1,115 @@
+/* ============================================================
+   tour — the terminal panel: dark, framed by signal corner
+   ticks like the receipt ticket, drafting lines barely lit.
+   ============================================================ */
+
+.tour {
+  position: relative;
+  background: var(--console-bg);
+  border: 1px solid rgba(236, 235, 231, 0.2);
+  box-shadow: 10px 10px 0 rgba(16, 16, 19, 0.12);
+  overflow: hidden;
+}
+
+.tour__corner {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  z-index: 2;
+}
+
+.tour__corner--1 {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+}
+
+.tour__corner--2 {
+  top: -1px;
+  right: -1px;
+  border-top: 2px solid var(--signal);
+  border-right: 2px solid var(--signal);
+}
+
+.tour__corner--3 {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+}
+
+.tour__corner--4 {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--signal);
+  border-right: 2px solid var(--signal);
+}
+
+.tour__bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--console-mut);
+  background: rgba(236, 235, 231, 0.04);
+}
+
+.tour__addr {
+  color: var(--console-fg);
+}
+
+.tour__body {
+  height: 384px;
+  overflow: hidden;
+  padding: 1.15rem 1.15rem 1.3rem;
+  font-size: 0.88rem;
+  line-height: 1.9;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.tour__line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tour__prompt {
+  color: var(--signal);
+}
+
+.tour__line--cmd {
+  color: var(--console-fg);
+}
+
+.tour__line--ok {
+  color: var(--signal);
+}
+
+.tour__line--out {
+  color: var(--console-mut);
+}
+
+.tour__cursor {
+  display: inline-block;
+  color: var(--console-fg);
+  animation: tour-blink 0.9s steps(2) infinite;
+}
+
+@keyframes tour-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour__cursor {
+    animation: none;
+  }
+}

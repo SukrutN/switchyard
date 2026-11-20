@@ -1,0 +1,96 @@
+{
+  "generated": "2026-10-24",
+  "note": "median of 3 after one warm-up; deterministic re-check per row; tabu only on day and ≤400-order inputs",
+  "dayRows": [
+    {
+      "key": "average-day",
+      "orders": 204,
+      "lines": 1477,
+      "carts": 83,
+      "batchMs": 18.24,
+      "tabuMs": 514.01,
+      "onlineMs": 2,
+      "releaseMs": 0.58,
+      "walksSaved": 0.4823
+    },
+    {
+      "key": "rush-morning",
+      "orders": 268,
+      "lines": 1008,
+      "carts": 60,
+      "batchMs": 33.45,
+      "tabuMs": 1513.17,
+      "onlineMs": 2.28,
+      "releaseMs": 0.54,
+      "walksSaved": 0.6682
+    },
+    {
+      "key": "seasonal-spike",
+      "orders": 426,
+      "lines": 2992,
+      "carts": 165,
+      "batchMs": 78.07,
+      "tabuMs": 2231.18,
+      "onlineMs": 4.98,
+      "releaseMs": 1.6,
+      "walksSaved": 0.5124
+    }
+  ],
+  "runs": [
+    {
+      "orders": 100,
+      "lines": 733,
+      "carts": 41,
+      "batchMs": 6,
+      "onlineMs": 3.23,
+      "releaseMs": 3.99,
+      "tabuMs": 133.77,
+      "tabuDeltaSec": 535.6,
+      "deterministic": true
+    },
+    {
+      "orders": 200,
+      "lines": 1451,
+      "carts": 81,
+      "batchMs": 19.28,
+      "onlineMs": 2.26,
+      "releaseMs": 3.68,
+      "tabuMs": 455.24,
+      "tabuDeltaSec": 940.4,
+      "deterministic": true
+    },
+    {
+      "orders": 400,
+      "lines": 2912,
+      "carts": 164,
+      "batchMs": 65.29,
+      "onlineMs": 4.86,
+      "releaseMs": 8.25,
+      "tabuMs": 2006.86,
+      "tabuDeltaSec": 1167.6,
+      "deterministic": true
+    },
+    {
+      "orders": 800,
+      "lines": 5817,
+      "carts": 327,
+      "batchMs": 250.62,
+      "onlineMs": 14.28,
+      "releaseMs": 18.33,
+      "tabuMs": null,
+      "tabuDeltaSec": null,
+      "deterministic": true
+    },
+    {
+      "orders": 1600,
+      "lines": 11626,
+      "carts": 652,
+      "batchMs": 980.13,
+      "onlineMs": 44.33,
+      "releaseMs": 57.55,
+      "tabuMs": null,
+      "tabuDeltaSec": null,
+      "deterministic": true
+    }
+  ]
+}

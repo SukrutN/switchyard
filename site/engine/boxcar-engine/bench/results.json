@@ -1,0 +1,60 @@
+{
+  "generated": "2026-10-24",
+  "note": "median of 3 in-process runs after one warm-up; deterministic re-check per row",
+  "runs": [
+    {
+      "lines": 5,
+      "units": 5,
+      "cartons": 1,
+      "cubeUtilization": 0.3337,
+      "packMs": 0.66,
+      "validateMs": 0.06,
+      "deterministic": true
+    },
+    {
+      "lines": 10,
+      "units": 10,
+      "cartons": 2,
+      "cubeUtilization": 0.5269,
+      "packMs": 1.13,
+      "validateMs": 0.08,
+      "deterministic": true
+    },
+    {
+      "lines": 20,
+      "units": 20,
+      "cartons": 4,
+      "cubeUtilization": 0.4561,
+      "packMs": 3.44,
+      "validateMs": 0.08,
+      "deterministic": true
+    },
+    {
+      "lines": 40,
+      "units": 40,
+      "cartons": 5,
+      "cubeUtilization": 0.6543,
+      "packMs": 6.05,
+      "validateMs": 0.14,
+      "deterministic": true
+    },
+    {
+      "lines": 80,
+      "units": 80,
+      "cartons": 10,
+      "cubeUtilization": 0.7656,
+      "packMs": 20.35,
+      "validateMs": 0.27,
+      "deterministic": true
+    },
+    {
+      "lines": 160,
+      "units": 160,
+      "cartons": 13,
+      "cubeUtilization": 0.8607,
+      "packMs": 66.85,
+      "validateMs": 0.54,
+      "deterministic": true
+    }
+  ]
+}

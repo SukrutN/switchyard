@@ -1,0 +1,532 @@
+/* ============================================================
+   hero — paper with drafting lines, a rising headline, a wire
+   receipt ticket, and the yard's tick strip at the bottom.
+   The geometry is the accent: one signal color, used like a
+   marker on a loading dock, never like a paint job.
+   ============================================================ */
+
+/* ---------- header ---------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58px;
+}
+
+.site-header__brand {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.site-header__ver {
+  color: var(--ink-50);
+  font-weight: 400;
+}
+
+.site-header__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+}
+
+.arrow {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+  transition: transform 0.3s var(--ease);
+}
+
+.site-header__link:hover .arrow {
+  transform: translateX(4px);
+}
+
+/* ---------- hero shell ---------- */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+.hero__inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding-block: clamp(1.25rem, 3vw, 2.25rem) clamp(1rem, 2vw, 1.75rem);
+}
+
+/* enerblock-style plate rows */
+.hero__tags {
+  display: flex;
+  justify-content: space-between;
+  border-block: 1px solid var(--line);
+}
+
+.hero__tag {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-block: 0.65rem;
+}
+
+.hero__tag__k {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--ink-50);
+}
+
+.hero__tag__v {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.hero__tag--right {
+  text-align: right;
+}
+
+.hero__tag__v--signal {
+  color: var(--signal-ink);
+}
+
+.hero__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(2rem, 5vw, 6rem);
+  align-items: center;
+  padding-block: clamp(2rem, 6vw, 4.5rem);
+}
+
+/* ---------- the claim ---------- */
+
+.hero__claim {
+  font-size: var(--step-hero);
+}
+
+.hero__claim em {
+  font-style: normal;
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.07em;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 0.04em;
+}
+
+/* word-mask rise: each line slides up under its own hard edge */
+.hero__line {
+  display: block;
+  overflow: hidden;
+}
+
+.hero__line > span {
+  display: inline-block;
+  transform: translateY(112%);
+  animation: hero-rise 0.95s var(--ease-rx) forwards;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes hero-rise {
+  to {
+    transform: translateY(0);
+  }
+}
+
+.hero__lede {
+  margin-top: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.hero__cta {
+  margin-top: clamp(1.5rem, 3vw, 2.5rem);
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+/* ---------- split buttons ---------- */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.95rem 1.3rem;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  text-decoration: none;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink-30);
+}
+
+.btn--ghost:hover {
+  border-color: var(--ink);
+}
+
+.btn__text {
+  position: relative;
+  display: block;
+  height: 1.15em;
+  overflow: hidden;
+}
+
+.btn__text span {
+  display: block;
+  line-height: 1.15;
+  transition: transform 0.35s var(--ease);
+}
+
+.btn__text span + span {
+  position: absolute;
+  inset: 0;
+  transform: translateY(100%);
+}
+
+.btn:hover .btn__text span:first-child {
+  transform: translateY(-100%);
+}
+
+.btn:hover .btn__text span + span {
+  transform: translateY(0);
+}
+
+.btn__arrow svg {
+  transition: transform 0.35s var(--ease);
+}
+
+.btn:hover .btn__arrow svg {
+  transform: translateX(5px);
+}
+
+/* ---------- the wire receipt ticket ---------- */
+
+.ticket {
+  position: relative;
+  max-width: 530px;
+  margin-left: auto;
+  background: var(--paper-raise);
+  border: 1px solid var(--ink-30);
+  padding: 1.3rem 1.4rem 1.05rem;
+  box-shadow: 9px 9px 0 rgba(22, 22, 26, 0.05);
+}
+
+.ticket__corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+}
+
+.ticket__corner.c1 {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+}
+
+.ticket__corner.c2 {
+  top: -1px;
+  right: -1px;
+  border-top: 2px solid var(--signal);
+  border-right: 2px solid var(--signal);
+}
+
+.ticket__corner.c3 {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+}
+
+.ticket__corner.c4 {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--signal);
+  border-right: 2px solid var(--signal);
+}
+
+.ticket__head {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--ink-50);
+}
+
+.ticket__num {
+  color: var(--ink);
+}
+
+.ticket__body {
+  margin-top: 1.05rem;
+  font-size: 0.9rem;
+  line-height: 1.75;
+}
+
+.ticket__row {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticket__prompt {
+  color: var(--ink-50);
+}
+
+.ticket__ok {
+  color: var(--signal-ink);
+  font-weight: 600;
+}
+
+.ticket__mut {
+  color: var(--ink-50);
+}
+
+.ticket__sep {
+  border-top: 1px dashed var(--line);
+  margin-block: 0.55rem;
+}
+
+.ticket__cursor {
+  display: inline-block;
+  color: var(--signal-ink);
+  animation: blink 1.05s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.ticket__foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--ink-50);
+}
+
+.ticket__foot--signal {
+  color: var(--signal-ink);
+  font-weight: 700;
+}
+
+/* ---------- registration crosses ---------- */
+
+.xhair {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.xhair::before {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: 0;
+  width: 48px;
+  height: 1px;
+  background: var(--ink-30);
+}
+
+.xhair::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -24px;
+  width: 1px;
+  height: 48px;
+  background: var(--ink-30);
+}
+
+.xhair__x,
+.xhair__y {
+  position: absolute;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-50);
+}
+
+.xhair--tr {
+  top: clamp(168px, 22vw, 250px);
+  right: clamp(8px, 2.5vw, 28px);
+}
+
+/* top-right cross: the labels flip left so they never clip the edge */
+.xhair--tr .xhair__x {
+  right: 30px;
+  top: -18px;
+  text-align: right;
+}
+
+.xhair--tr .xhair__y {
+  right: 30px;
+  top: 8px;
+  text-align: right;
+}
+
+.xhair--bl {
+  bottom: 130px;
+  left: clamp(8px, 2.5vw, 28px);
+}
+
+.xhair--bl .xhair__x {
+  left: 30px;
+  top: -18px;
+}
+
+.xhair--bl .xhair__y {
+  left: 30px;
+  top: 8px;
+}
+
+/* ---------- the tick strip ---------- */
+
+.tick {
+  border-top: 1px solid var(--line);
+  overflow: hidden;
+  padding-block: 0.85rem;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 5%,
+    #000 95%,
+    transparent
+  );
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+
+.tick__track {
+  display: flex;
+  width: max-content;
+  animation: tick-run 38s linear infinite;
+}
+
+.tick:hover .tick__track {
+  animation-play-state: paused;
+}
+
+.tick__item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-inline: 1.4rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--ink-70);
+  white-space: nowrap;
+}
+
+.tick__op {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tick__item--signal,
+.tick__item--signal .tick__op {
+  color: var(--signal-ink);
+}
+
+.tick__dash {
+  width: 24px;
+  height: 1px;
+  background: var(--line);
+  margin-left: 1.1rem;
+}
+
+@keyframes tick-run {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 960px) {
+  .hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.25rem;
+  }
+
+  /* plates may wrap rather than push the page wide */
+  .hero__tags {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
+  .ticket {
+    max-width: 520px;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .xhair {
+    display: none;
+  }
+
+  .hero__cta .btn {
+    flex: 1 1 auto;
+    justify-content: space-between;
+  }
+}
+
+/* ---------- reduced motion: everything lands instantly ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__line > span {
+    animation: none;
+    transform: none;
+  }
+
+  .tick__track {
+    animation: none;
+  }
+
+  .ticket__cursor {
+    animation: none;
+  }
+
+  .btn__text span,
+  .btn__arrow svg,
+  .arrow {
+    transition: none;
+  }
+}
