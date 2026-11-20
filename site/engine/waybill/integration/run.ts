@@ -1,6 +1,6 @@
 /* ============================================================
    run — the integration bring-up: waybill's adapters against
-   the REAL Go yard, sibling repo `switchyard`, on the wire.
+   the REAL Go yard, this repository's own broker, on the wire.
 
    The script tells the unit 03 story end to end:
 
@@ -27,9 +27,10 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { createConnection, createServer } from "node:net";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, parse } from "node:path";
+import { fileURLToPath } from "node:url";
 import { decodeCanon, encodeCanon, type CanonOrder } from "../src/canon.ts";
 import { decodeControls, isa13, reserve, txnCtl } from "../src/cntrl.ts";
 import { LANES, decodeDespatchRow, despatchRowOf, deadSubject, orderSubject } from "../src/lane.ts";
@@ -47,7 +48,19 @@ import {
 } from "../fixtures/documents.ts";
 import { parseX12 } from "../src/x12.ts";
 
-const SIBLING = "D:/Projects/Default Project/switchyard";
+/** the yard this integration drives is this repository's own broker:
+    walk up from this file to the module root, the directory with go.mod. */
+function findYard(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  while (dir !== parse(dir).root) {
+    if (existsSync(join(dir, "go.mod"))) {
+      return dir;
+    }
+    dir = dirname(dir);
+  }
+  throw new Error("no go.mod above this script - the yard is missing");
+}
+const YARD = findYard();
 
 /** the OS names a free listen spec: bind on 0, read it, close. */
 function freePort(): Promise<number> {
@@ -109,7 +122,7 @@ async function main(): Promise<void> {
   const child = spawn(
     "go",
     ["run", "./cmd/switchyard", "-data-dir", dir, "-addr", `127.0.0.1:${PORT}`],
-    { cwd: SIBLING, stdio: ["ignore", "inherit", "inherit"] },
+    { cwd: YARD, stdio: ["ignore", "inherit", "inherit"] },
   );
   let spur: InstanceType<typeof Spur> | null = null;
   try {
