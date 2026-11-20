@@ -1,9 +1,10 @@
-# deploy — main builds, exports, and ships the static site to Pages.
+# deploy — main builds the site, exports, and ships it to Pages at /switchyard/.
 name: deploy
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,11 +25,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build
+          cache-dependency-path: site/package-lock.json
+      - name: Build (site/, basePath /switchyard)
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: out
+          path: site/out
 
   deploy:
     needs: build
