@@ -87,6 +87,7 @@ export default function SiteFooter() {
               Every number on this page was printed by the yard first.
             </p>
             <p className="footer__lic mono">apache-2.0</p>
+            <p className="footer__lic mono">built by sukrut nadigotti</p>
           </div>
         </div>
 

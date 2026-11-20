@@ -23,7 +23,7 @@ export default function PromiseSection() {
           </p>
           <h2 className="display promise__title" data-anim="wipe">
             <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-              <span className="wl__t">Numbers never move.</span>
+              <span className="wl__t">The protocol is frozen.</span>
             </span>
           </h2>
           <p className="promise__body">

@@ -2,9 +2,8 @@ import Reveal from "./Reveal";
 import "./laws.css";
 
 /**
- * The proofs: the yard's three laws, as a numbered stack. Every word
- * here is the broker README's own wording, trimmed for display, no
- * invented claims. This is the section that makes the site trustworthy.
+ * The yard's three laws as a numbered stack — the broker README's
+ * own wording, trimmed for display.
  */
 export default function Laws() {
   return (
@@ -18,7 +17,7 @@ export default function Laws() {
             </p>
             <h2 className="display laws__title" data-anim="wipe">
               <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
-                <span className="wl__t">Three laws, kept.</span>
+                <span className="wl__t">Three laws, enforced.</span>
               </span>
             </h2>
             <p className="laws__note">
@@ -43,12 +42,12 @@ export default function Laws() {
               </span>
               <div className="law__cell">
                 <p className="law__eyebrow">LAW 01</p>
-                <h3 className="law__name display">The yard never lies.</h3>
+                <h3 className="law__name display">What you publish is what they get.</h3>
                 <p className="law__body">
                   What lands on the wire is exactly what every subscriber
                   gets, in accepted order, with nothing invented between
-                  sender and receiver. That sentence is a test suite, not a
-                  slogan.
+                  sender and receiver — and a test suite over real sockets
+                  holds it that way.
                 </p>
               </div>
             </article>
