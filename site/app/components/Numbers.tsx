@@ -25,8 +25,8 @@ export default function Numbers() {
           </h2>
           <p className="numbers__lede" data-fill>
             yardstick starts a temporary yard and runs each scene three
-            times, printing the spread so the table can&apos;t lie. The
-            gauges below show the strong end of each range.
+            times, printing the spread across all three runs. The gauges
+            below show the strong end of each range.
           </p>
         </div>
 
