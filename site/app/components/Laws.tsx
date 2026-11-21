@@ -2,7 +2,7 @@ import Reveal from "./Reveal";
 import "./laws.css";
 
 /**
- * The yard's three laws as a numbered stack — the broker README's
+ * The yard's three laws as a numbered stack: the broker README's
  * own wording, trimmed for display.
  */
 export default function Laws() {
@@ -46,7 +46,7 @@ export default function Laws() {
                 <p className="law__body">
                   What lands on the wire is exactly what every subscriber
                   gets, in accepted order, with nothing invented between
-                  sender and receiver — and a test suite over real sockets
+                  sender and receiver, and a test suite over real sockets
                   holds it that way.
                 </p>
               </div>

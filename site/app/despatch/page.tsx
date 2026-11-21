@@ -279,7 +279,8 @@ export default function DespatchPage() {
                   published on the tick, released only when a zone has the
                   picker-seconds to afford them, with the tardiness and the
                   trade-offs written into the ledger rather than smoothed
-                  away. Same order bytes in, same batches out.
+                  away. The same order bytes go in, and the same batches
+                  come out.
                 </p>
 
                 <div className="hero__cta">
@@ -722,11 +723,11 @@ export default function DespatchPage() {
                 <div>
                   <h3 className="dp__fence-name">No path routing</h3>
                   <p className="dp__fence-body">
-                    Tour seconds are batching's proxy, not a route plan;
-                    turn-by-turn walking belongs to{" "}
+                    Tour seconds stand in for routing cost; they are not a
+                    route plan. Turn-by-turn walking belongs to{" "}
                     <span className="mono">northspan</span>, the routing
-                    family, and the stop ledger here is its seam. One job per
-                    unit.
+                    family, and the stop ledger here is the seam between the
+                    two. One job per unit.
                   </p>
                 </div>
               </div>
@@ -748,7 +749,8 @@ export default function DespatchPage() {
                   <p className="dp__fence-body">
                     AMR/AGV gating is <span className="mono">hearthline</span>'s
                     sheet 08. The release gate here reads labor, picker crews,
-                    craft seconds, and stops at the cart, not the robot.
+                    and craft seconds, and it stops at the cart rather than
+                    the robot.
                   </p>
                 </div>
               </div>

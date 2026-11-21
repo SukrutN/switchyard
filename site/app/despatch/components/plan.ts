@@ -5,7 +5,8 @@
    run away from the front cross-aisle, the depot sits west of
    aisle 1. The tour path is the traversal proxy exactly as the
    engine pays it, along the front, into every visited aisle,
-   out again, so the drawing is the arithmetic, not a metaphor.
+   out again, so the drawing is the arithmetic itself rather than an
+   illustration of it.
    ============================================================ */
 
 import type { PickStop } from "@/engine/despatch-engine/index.ts";

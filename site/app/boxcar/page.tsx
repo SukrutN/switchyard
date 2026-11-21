@@ -34,7 +34,7 @@ import bench from "@/engine/boxcar-engine/bench/results.json";
 export const metadata: Metadata = {
   title: "boxcar · unit-04, the pack-out solver",
   description:
-    "Cartonization from the switchyard family: carton selection, 3D placements, and a validation report where no-floating is a test, not a feature. Fixed-point arithmetic, zero dependencies, byte-stable.",
+    "Cartonization from the switchyard family: carton selection, 3D placements, and a validation report, with the no-floating rule enforced by a test in the suite. Fixed-point arithmetic, zero dependencies, byte-stable.",
 };
 
 /* ---------- build-time pack-out: the page's whole ledger ----------
@@ -288,8 +288,8 @@ export default function BoxcarPage() {
                   An order sheet and a five-carton library become placements:
                   gravity-settled, load-rated, stability-checked, and stamped
                   with a validation report. The no-floating check is enforced
-                  by a test in the suite. Same order bytes in, same
-                  solution bytes out.
+                  by a test in the suite. The same order bytes go in, and the
+                  same solution bytes come out.
                 </p>
 
                 <div className="hero__cta">

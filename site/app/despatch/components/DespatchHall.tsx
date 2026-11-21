@@ -24,9 +24,10 @@ import "./hall.css";
 
    Every switch re-calls the pure engine (batchOnline, releasePlan)
    the same way the characterization suite calls it, a window swap
-   costs milliseconds, so the sweep is felt, not narrated. The one
-   thing pre-baked is the tabu pass: its scan is quadratic by
-   design, so it arrives here as a reported delta, not a demo stall.
+   costs milliseconds, so the sweep runs live rather than narrated. The
+   one thing pre-baked is the tabu pass: its scan is quadratic by
+   design, so it arrives here as a reported delta rather than a live
+   stall.
    ============================================================ */
 
 export interface DespatchHallProps {

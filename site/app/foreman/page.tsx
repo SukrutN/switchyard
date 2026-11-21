@@ -616,9 +616,9 @@ export default function ForemanPage() {
                 consumed through the same northspan standards both sides. The
                 whole gap is the noise:{" "}
                 {report.hoursGap >= 0 ? "+" : ""}
-                {n1(report.hoursGap)} standard hours DC-wide. No zone wanders
-                past its own amplitude. Variance moves volume, not the minutes
-                per line.
+                {n1(report.hoursGap)} standard hours DC-wide. No zone goes
+                past its own amplitude. The variance moves volume around,
+                while the minutes per line stay fixed.
               </p>
             </Reveal>
 
@@ -812,7 +812,7 @@ export default function ForemanPage() {
                 {
                   n: "01",
                   name: "No HR detail",
-                  body: "Skill bands and weekly hour caps only. No names, no rosters, no leave policy, the pool is a sheet of capacity, not a crew list.",
+                  body: "Skill bands and weekly hour caps only. No names, no rosters, no leave policy. The pool is a sheet of capacity rather than a crew list.",
                 },
                 {
                   n: "02",
