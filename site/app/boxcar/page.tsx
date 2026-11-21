@@ -287,8 +287,8 @@ export default function BoxcarPage() {
                 <p className="lede hero__lede">
                   An order sheet and a five-carton library become placements:
                   gravity-settled, load-rated, stability-checked, and stamped
-                  with a validation report. The no-floating check runs as a
-                  test in the suite, not a promise. Same order bytes in, same
+                  with a validation report. The no-floating check is enforced
+                  by a test in the suite. Same order bytes in, same
                   solution bytes out.
                 </p>
 
@@ -412,8 +412,8 @@ export default function BoxcarPage() {
                   <p className="bc__fix-body" data-fill>
                     Weight moves through contact shares that renormalize to
                     one, so a unit never carries past its rated{" "}
-                    <span className="mono">maxLoad</span>. The exceedance
-                    case opens a fresh carton instead of quietly violating.
+                    <span className="mono">maxLoad</span>. When the rated
+                    load would be exceeded, a new carton is opened instead.
                   </p>
                 </article>
               </Reveal>
@@ -501,8 +501,8 @@ export default function BoxcarPage() {
             </table>
             <p className="bc__note mono">
               the same figures are pinned in fixtures/expected.ts and held to
-              ±0.006 by tests/characterization.test.ts, the table above is
-              this build's own pack(·) call, not a transcription.
+              ±0.006 by tests/characterization.test.ts; the table above is
+              this build's own pack(·) call.
             </p>
           </div>
         </section>
@@ -533,14 +533,14 @@ export default function BoxcarPage() {
                 passes in canonical bigger-first order until nothing
                 converts. The score is cube utilization plus a
                 weight-margin term, minus a small penalty per opened carton:
-                fill quality outranks box count, but the last lonely unit
-                doesn't blow open a warehouse.
+                fill quality ranks above box count, but opening a carton for
+                a single unit still carries a cost.
               </p>
               <p className="bc__law-note" data-fill>
                 Two rules sit above the score. The orphan veto: a run that
                 strands a unit no template could ever carry loses to any run
                 that completes the order. And an empty run never wins.
-                Without that tripwire, a phantom weight margin out of an
+                Without that guard, a phantom weight margin from an
                 empty box would beat real work, so the packer reports the
                 stranding under <span className="mono">unfilled</span> and
                 moves on.

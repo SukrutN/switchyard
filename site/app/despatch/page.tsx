@@ -435,11 +435,12 @@ export default function DespatchPage() {
                     {fmtInt(f2p90)}s · wait never past the window
                   </p>
                   <p className="dp__fix-body" data-fill>
-                    The freeze window is the whole on-line rule: land inside a
-                    window, out at the freeze; land later, wait one. Widening w
-                    buys bigger pools and better tours, and the ledger keeps
-                    the price in black and white: orders past their SLA due get
-                    counted, listed, and shown.
+                    The freeze window is the entire on-line rule: orders that
+                    land inside a window publish at the freeze; orders that
+                    land later wait for the next one. Widening w buys bigger
+                    pools and better tours, and the ledger shows the cost
+                    explicitly: orders past their SLA due are counted,
+                    listed, and displayed.
                   </p>
                 </article>
               </Reveal>
@@ -458,10 +459,11 @@ export default function DespatchPage() {
                   </p>
                   <p className="dp__fix-body" data-fill>
                     A zone spends only the picker-seconds it owns: one craft
-                    leaves the moment the crew can afford tour plus{" "}
-                    {CRAFT_OVERHEAD_SEC}s of marshal and hand-off. Where pacing
-                    runs late, the plan names the batches in{" "}
-                    <span className="mono">breaches[]</span>, not a footnote.
+                    leaves the moment the crew can afford the tour plus{" "}
+                    {CRAFT_OVERHEAD_SEC}s of marshal and hand-off time. Where
+                    pacing runs late, the plan names the affected batches in{" "}
+                    <span className="mono">breaches[]</span>, not in a
+                    footnote.
                   </p>
                 </article>
               </Reveal>
@@ -578,13 +580,13 @@ export default function DespatchPage() {
               <p className="dp__law-note" data-fill>
                 Two rules sit above the batching. The window: an order is
                 visible only once it has landed, and everything landed
-                publishes at the freeze — no order is visible before it
+                publishes at the freeze. No order is visible before it
                 lands. The gate:
                 a batch rides its home zone's crew, one picker ×{" "}
                 {LINES_PER_PICKER_HOUR} lines/hour, with the craft counted the
                 moment the cart rolls, never before its publish tick. December's
-                spike is where the gate is loudest: Z1's crew saturates around{" "}
-                fifty carts however cleverly the windows pool, and the fix there
+                spike is where the gate binds hardest: Z1's crew saturates around{" "}
+                fifty carts no matter how the windows pool, and the fix there
                 is labor, not sequencing.
               </p>
             </div>
@@ -610,12 +612,12 @@ export default function DespatchPage() {
               </span>
             </h2>
             <p className="lede dp__lede" data-fill>
-              Batching runtime against order count, re-measured until it stopped
-              moving. Every row re-checks byte-level determinism: two full
-              passes of the same day must serialize identically, or the row
-              can't call itself a result. The tabu pass runs its quadratic scan
-              only on day-sized inputs, beyond that, the cell is a dash,
-              not a fudged number.
+              Batching runtime against order count, re-measured until the
+              numbers stabilized. Every row re-checks byte-level determinism:
+              two full passes of the same day must serialize identically, or
+              the row is discarded. The tabu pass runs its quadratic scan
+              only on day-sized inputs; beyond that, the cell is left blank
+              rather than estimated.
             </p>
 
             <BenchSpark />
