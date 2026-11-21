@@ -208,7 +208,7 @@
         if (!activeKey) { /* nothing selected yet */ }
       })
       .catch(function () {
-        el.kvNote.textContent = "the console lost its mouth - check the binary's log";
+        el.kvNote.textContent = "the keys could not be read - check the console binary's log";
         el.kvNote.className = "note note--warn";
       });
   }

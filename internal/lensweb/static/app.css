@@ -57,6 +57,7 @@ html, body {
 }
 .wl__t {
   display: inline-block;
+  margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.02em;
