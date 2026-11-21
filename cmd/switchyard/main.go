@@ -4,14 +4,18 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/SukrutN/switchyard/internal/metrics"
 	"github.com/SukrutN/switchyard/internal/server"
 )
 
@@ -31,6 +35,10 @@ func main() {
 		authToken = flag.String("auth", "", "demand this shared token before HELLO")
 		certFile  = flag.String("cert", "", "TLS certificate PEM; requires -key")
 		keyFile   = flag.String("key", "", "TLS private key PEM; requires -cert")
+		// The metrics port: the yard's own facts in Prometheus text, plus a
+		// health page, on a port the scraper can reach. Empty keeps it off.
+		metricsAddr  = flag.String("metrics", "", "serve /metrics and /health on this host:port (e.g. 127.0.0.1:4781)")
+		metricsToken = flag.String("metrics-auth", "", "token the metrics port demands as a Bearer header; empty means open")
 	)
 	flag.Parse()
 
@@ -68,6 +76,25 @@ func main() {
 	runErr := make(chan error, 1)
 	go func() { runErr <- srv.Run() }()
 
+	// The metrics port rides alongside the yard: the same facts the console
+	// answers, in Prometheus text. It fails the process if it cannot bind,
+	// because a yard that promised its scraper a page must keep it.
+	var metricsSrv *http.Server
+	if *metricsAddr != "" {
+		metricsSrv = &http.Server{
+			Addr:              *metricsAddr,
+			Handler:           metrics.Handler(srv.Metrics(), srv.YardStats, *metricsToken),
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		go func() {
+			log.Info("metrics open", "addr", *metricsAddr, "auth", onOff(*metricsToken))
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Error("metrics port failed", "err", err)
+				runErr <- err
+			}
+		}()
+	}
+
 	lanes := "off"
 	if *dataDir != "" {
 		lanes = *dataDir
@@ -80,12 +107,17 @@ func main() {
 	if *certFile != "" || *keyFile != "" {
 		wrap = "on"
 	}
+	keep := "off"
+	if *metricsAddr != "" {
+		keep = *metricsAddr
+	}
 	log.Info("yard open",
 		"addr", srv.Addr(),
 		"maxBody", cfg.MaxBody,
 		"lanes", lanes,
 		"idle", *idle, "grace", *grace,
 		"auth", auth, "tls", wrap,
+		"metrics", keep,
 		"version", server.Version,
 	)
 
@@ -100,6 +132,11 @@ func main() {
 	case sig := <-stop:
 		log.Info("shutting down", "signal", sig.String())
 	}
+	if metricsSrv != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}
 	done := make(chan struct{})
 	go func() { srv.Stop(); close(done) }()
 	select {
@@ -108,4 +145,12 @@ func main() {
 		log.Warn("stop did not land in 5s; exiting")
 	}
 	fmt.Fprintf(os.Stderr, "switchyard: closed\n")
+}
+
+// onOff words a flag for the boot line.
+func onOff(value string) string {
+	if value != "" {
+		return "on"
+	}
+	return "off"
 }

@@ -32,6 +32,15 @@ jobs:
       - name: go test (race)
         run: go test -race -timeout 120s ./...
 
+  docker:
+    name: image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the yard image
+        run: docker build -t switchyard .
+
   site:
     name: site — engines, locks, typecheck, build
     runs-on: ubuntu-latest

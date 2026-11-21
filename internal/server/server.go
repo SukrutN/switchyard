@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SukrutN/switchyard/internal/metrics"
 	"github.com/SukrutN/switchyard/internal/wire"
 )
 
@@ -90,13 +91,14 @@ func (c *Config) withDefaults() {
 // Server owns the listener, the routing hub, and the session bookkeeping.
 // One Server per process is the intended use; nothing is global.
 type Server struct {
-	cfg    Config
-	hub    *Hub
-	ln     net.Listener
-	log    *slog.Logger
-	mu     sync.Mutex // guards closed + the wg Add/intent pairing
-	closed bool
-	wg     sync.WaitGroup
+	cfg        Config
+	hub        *Hub
+	ln         net.Listener
+	log        *slog.Logger
+	metricsReg *metrics.Registry
+	mu         sync.Mutex // guards closed + the wg Add/intent pairing
+	closed     bool
+	wg         sync.WaitGroup
 }
 
 // NewServer binds immediately — bring-up errors surface here, not at Run.
@@ -122,7 +124,38 @@ func NewServer(cfg Config) (*Server, error) {
 	} else {
 		cfg.Log.Info("lanes disabled", "reason", "no data dir configured")
 	}
-	return &Server{cfg: cfg, hub: hub, ln: ln, log: cfg.Log}, nil
+	return &Server{cfg: cfg, hub: hub, ln: ln, log: cfg.Log, metricsReg: metrics.NewRegistry()}, nil
+}
+
+// Metrics exposes the process counters the exporter renders; the accept loop
+// is the only writer.
+func (srv *Server) Metrics() *metrics.Registry {
+	return srv.metricsReg
+}
+
+// YardStats adapts the yard's own console assembly to the metrics exporter:
+// the same rows the console protocol answers, one snapshot, honestly
+// assembled lane by lane.
+func (srv *Server) YardStats() metrics.Stats {
+	snap := srv.hub.yardState(Version)
+	stats := metrics.Stats{
+		Version:     snap.Version,
+		UptimeSec:   snap.UptimeSec,
+		Sessions:    snap.Sessions,
+		Quarantined: snap.Quarantined,
+	}
+	stats.Lanes = make([]metrics.LaneStat, 0, len(snap.Lanes))
+	for _, row := range snap.Lanes {
+		lane := metrics.LaneStat{Name: row.Name, Seq: row.Seq}
+		if stream := srv.hub.lanes.resolve(row.Name); stream != nil {
+			detail := stream.consoleState()
+			lane.JournalBytes = detail.JournalBytes
+			lane.KeyCount = detail.KeyCount
+			lane.Quarantined = detail.Quarantined
+		}
+		stats.Lanes = append(stats.Lanes, lane)
+	}
+	return stats
 }
 
 // listenTLS binds the yard's listener: plain TCP unless both a certificate
@@ -202,6 +235,7 @@ func (srv *Server) serveConn(conn net.Conn) {
 	defer conn.Close()
 
 	id := srv.hub.nextID()
+	srv.metricsReg.ConnAccepted()
 	s := newSession(id, &srv.cfg, srv.hub, srv.log, conn)
 	srv.hub.register(s)
 	err := s.serve()
