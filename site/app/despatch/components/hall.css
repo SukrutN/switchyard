@@ -536,3 +536,81 @@
     transition: none;
   }
 }
+
+/* ---------- the order-stream importer ---------- */
+
+.dh__import {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--console-line, rgba(235, 230, 220, 0.18));
+  border-radius: 2px;
+  background: rgba(235, 230, 220, 0.04);
+  margin-top: 4px;
+}
+
+.dh__import-k {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--console-mut, #8d8778);
+}
+
+.dh__import-area {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--console-line, rgba(235, 230, 220, 0.18));
+  border-radius: 2px;
+  background: rgba(16, 16, 19, 0.6);
+  color: var(--console-fg, #ebe6dc);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.dh__import-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dh__import-btn {
+  border: 1px solid var(--console-fg, #ebe6dc);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--console-fg, #ebe6dc);
+  font-size: 12px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.dh__import-btn:hover {
+  background: rgba(235, 230, 220, 0.1);
+}
+
+.dh__import-note {
+  font-size: 11px;
+  color: var(--console-mut, #8d8778);
+}
+
+.dh__import-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+.dh__import-table th,
+.dh__import-table td {
+  text-align: left;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--console-line, rgba(235, 230, 220, 0.12));
+}
+
+.dh__import-table th {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--console-mut, #8d8778);
+}

@@ -7,14 +7,17 @@ import {
   releasePlan,
   zoneCaps,
   CRAFT_OVERHEAD_SEC,
+  importOrdersCsv,
+  type OrdersImport,
 } from "@/engine/despatch-engine/index.ts";
 import type {
   Batch,
+  DespatchOrder,
   OnlineRun,
   ReleasePlan,
 } from "@/engine/despatch-engine/index.ts";
 import { WINDOW_SWEEP } from "@/engine/despatch-engine/index.ts";
-import { CATALOG, SLOTTING, dayByKey } from "@/engine/despatch-engine/fixtures/dc.ts";
+import { CATALOG, SLOTTING, dayByKey, type DayProfile, type DayPlan } from "@/engine/despatch-engine/fixtures/dc.ts";
 import DCPlan from "./DCPlan";
 import { escTitle, tourPath } from "./plan";
 import "./hall.css";
@@ -28,6 +31,11 @@ import "./hall.css";
    one thing pre-baked is the tabu pass: its scan is quadratic by
    design, so it arrives here as a reported delta rather than a live
    stall.
+
+   The fourth tab carries the reader's own order stream: a CSV of
+   order lines, imported with the engine's own reader, grouped into
+   orders, dues set by the class law, and run through the same
+   freeze-window sweep as the worked days.
    ============================================================ */
 
 export interface DespatchHallProps {
@@ -37,6 +45,23 @@ export interface DespatchHallProps {
     { deltaSec: number; deltaPct: number; appliedMoves: number }
   >;
 }
+
+/** the imported stream runs on the average day's crew */
+const CUSTOM_PROFILE: DayProfile = {
+  key: "your-stream",
+  label: "Your order stream",
+  short: "your stream",
+  sub: "imported CSV · paced at 1 picker/zone",
+  ordersPerHour: 0,
+  horizonSec: 0,
+  basketMin: 0,
+  basketRange: 0,
+  classShares: [0, 0],
+  pickersPerZone: 1,
+  seed: 0,
+};
+
+const CUSTOM_KEY = "your-stream";
 
 const fmtInt = (n: number): string =>
   n.toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -51,12 +76,27 @@ function p90Of(waits: number[]): number {
   return s[Math.min(s.length - 1, Math.floor(s.length * 0.9))] ?? 0;
 }
 
+/** the custom tab before any import: an honest empty day */
+function makeEmptyCustomDay(): DayPlan {
+  return { profile: CUSTOM_PROFILE, orders: [], horizonSec: 3600 };
+}
+
 export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
   const [profileKey, setProfileKey] = useState(profiles[0].key);
   const [wSec, setWSec] = useState<number>(90);
   const [sel, setSel] = useState(0);
+  const [csvText, setCsvText] = useState("");
+  const [custom, setCustom] = useState<DayPlan | null>(null);
+  const [importReport, setImportReport] = useState<OrdersImport["report"] | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
-  const day = useMemo(() => dayByKey(profileKey), [profileKey]);
+  const day = useMemo(
+    () =>
+      profileKey === CUSTOM_KEY
+        ? (custom ?? makeEmptyCustomDay())
+        : dayByKey(profileKey),
+    [profileKey, custom],
+  );
 
   /* the whole window sweep for the current day, six pure calls */
   const sweeps = useMemo(
@@ -94,7 +134,8 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
     (s, o) => s + o.lines.reduce((t, l) => t + l.qty, 0),
     0,
   );
-  const tabuOf = tabu[profileKey];
+  const tabuOf = profileKey === CUSTOM_KEY ? undefined : tabu[profileKey];
+  const onCustom = profileKey === CUSTOM_KEY;
 
   /* sweep chart geometry */
   const maxSaved = Math.max(...sweeps.map((s) => s.run.walksSaved), 0.0001);
@@ -110,10 +151,35 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
   const pickProfile = (key: string) => {
     setProfileKey(key);
     setSel(0);
+    if (key === CUSTOM_KEY) setImportOpen(true);
   };
   const pickWindow = (w: number) => {
     setWSec(w);
     setSel(0);
+  };
+
+  const runImport = () => {
+    try {
+      const imported = importOrdersCsv(csvText, CATALOG);
+      setImportReport(imported.report);
+      if (imported.orders.length === 0) return;
+      const lastArrival = imported.orders[imported.orders.length - 1].arrivalSec;
+      // the sweep needs a horizon past the last arrival and its dues
+      const horizonSec = Math.ceil((lastArrival + 3600) / 60) * 60;
+      setCustom({
+        profile: CUSTOM_PROFILE,
+        orders: [...imported.orders],
+        horizonSec,
+      });
+    } catch (failure) {
+      setImportReport({
+        rowsRead: 0,
+        rowsAccepted: 0,
+        rowsRejected: 0,
+        rejections: [],
+        notes: [failure instanceof Error ? failure.message : String(failure)],
+      });
+    }
   };
 
   const batchFreezeIx = batch
@@ -140,7 +206,85 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
               </button>
             );
           })}
+          <button
+            role="tab"
+            aria-selected={onCustom}
+            className={`dh__tab${onCustom ? " dh__tab--on" : ""}`}
+            onClick={() => pickProfile(CUSTOM_KEY)}
+          >
+            <span className="dh__tab-name mono">your stream</span>
+            <span className="dh__tab-sub mono">
+              {custom ? "imported CSV · run live" : "import an order CSV"}
+            </span>
+          </button>
         </div>
+
+        {onCustom && (
+          <div className="dh__import">
+            <p className="dh__import-k mono">
+              one row per order line · columns orderId, arrivalSec, sku, qty,
+              and optional class (standard, expedite, critical) · dues are set
+              by the class law once the rows are grouped
+            </p>
+            <textarea
+              className="dh__import-area mono"
+              spellCheck={false}
+              value={csvText}
+              onChange={(event) => setCsvText(event.target.value)}
+              placeholder={"orderId,arrivalSec,sku,qty,class\nO-1,120,TWN-JUTE,3,expedite"}
+              rows={5}
+            />
+            <div className="dh__import-row">
+              <button className="dh__import-btn mono" onClick={runImport}>
+                import the stream
+              </button>
+              {custom && custom.orders.length > 0 && (
+                <span className="dh__import-note mono">
+                  {custom.orders.length} orders · horizon{" "}
+                  {fmtInt(custom.horizonSec)}s
+                </span>
+              )}
+            </div>
+            {importReport && (
+              <div className="dh__import-report">
+                {(importReport.rowsRead > 0 || importReport.rowsRejected > 0) && (
+                  <p className="dh__import-k mono">
+                    {importReport.rowsAccepted} of {importReport.rowsRead} rows
+                    accepted
+                    {importReport.rowsRejected
+                      ? ` · ${importReport.rowsRejected} refused`
+                      : ""}
+                  </p>
+                )}
+                {importReport.rejections.length > 0 && (
+                  <table className="dh__import-table mono">
+                    <thead>
+                      <tr>
+                        <th>line</th>
+                        <th>order</th>
+                        <th>reasons</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importReport.rejections.map((rejection) => (
+                        <tr key={rejection.line}>
+                          <td>{rejection.line}</td>
+                          <td>{rejection.order || "—"}</td>
+                          <td>{rejection.reasons.join(" ")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {importReport.notes.map((note) => (
+                  <p key={note} className="dh__import-k mono">
+                    {note}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="dh__wins" aria-label="freeze window">
           <span className="dh__wins-k mono">freeze w</span>
@@ -183,9 +327,15 @@ export default function DespatchHall({ profiles, tabu }: DespatchHallProps) {
           </span>
           <span className="dh__stat-s mono">
             vs first-come ·{" "}
-            <span className="dh__stat-tabu">
-              tabu −{fmtSec(tabuOf?.deltaSec ?? 0)}s
-            </span>
+            {tabuOf ? (
+              <span className="dh__stat-tabu">
+                tabu −{fmtSec(tabuOf.deltaSec)}s
+              </span>
+            ) : (
+              <span className="dh__stat-tabu">
+                {onCustom ? "tabu not run on imported streams" : "tabu −0s"}
+              </span>
+            )}
           </span>
         </div>
         <div className="dh__stat">

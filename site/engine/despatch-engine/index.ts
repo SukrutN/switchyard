@@ -26,6 +26,12 @@ export {
 } from "./src/release.ts";
 export type { BatchJob } from "./src/release.ts";
 export { tabuImprove } from "./src/tabu.ts";
+export { importOrdersCsv } from "./src/ordersCsv.ts";
+export type {
+  OrdersImport,
+  OrdersImportReport,
+  RowRejection,
+} from "./src/ordersCsv.ts";
 export {
   atLeastFree,
   mergeStops,
