@@ -1,22 +1,22 @@
 /* ============================================================
-   yardmaster console — the site's tokens, a darker plate.
-   Paper, ink, one signal color. Hairlines and mono. Same law:
-   every token exists because a panel uses it. No framework.
+   yardmaster console — the site's tokens, a darker plate: the
+   same deep navy band and mercury voice the site's console
+   sections wear. Hairlines and mono. Same law: every token
+   exists because a panel uses it. No framework.
    ============================================================ */
 
 :root {
-  /* paper & ink (inverted for the console band) */
-  --console-bg: #101013;
-  --console-fg: #ecebe7;
-  --console-mut: rgba(236, 235, 231, 0.68);
-  --console-line: rgba(236, 235, 231, 0.14);
-  --paper: #f1efeb;
-  --ink: #16161a;
+  /* the console band: deep navy, mercury voice (the site's tokens) */
+  --console-bg: #0d1355;
+  --console-fg: #e8e6e0;
+  --console-mut: rgba(232, 230, 224, 0.68);
+  --console-line: rgba(232, 230, 224, 0.14);
 
-  /* the signal */
-  --signal: #ff4708;
+  /* the cobalt lifted toward mercury, so signal text reads on navy
+     (the site's --console-signal) */
+  --console-signal: #93a7df;
 
-  /* the borrowed answer-ease (the site's --ease-rx) */
+  /* the site's answer-ease (--ease-rx) */
   --ease-rx: cubic-bezier(0.53, 0, 0, 1);
 
   --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
@@ -43,7 +43,7 @@ html, body {
   gap: 0.75rem 1.5rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--console-line);
-  background: linear-gradient(var(--console-bg), rgba(16, 16, 19, 0));
+  background: linear-gradient(var(--console-bg), rgba(13, 19, 85, 0));
 }
 
 .mast__brand { display: flex; align-items: baseline; gap: 0.5rem; }
@@ -115,7 +115,7 @@ html, body {
   width: 7px;
   height: 7px;
   margin-right: 0.35rem;
-  background: var(--signal);
+  background: var(--console-signal);
   vertical-align: 1px;
 }
 .gateplate--dark .dot { background: var(--console-mut); }
@@ -142,8 +142,8 @@ html, body {
   left: -1px;
   width: 10px;
   height: 10px;
-  border-top: 2px solid rgba(255, 71, 8, 0.55);
-  border-left: 2px solid rgba(255, 71, 8, 0.55);
+  border-top: 2px solid rgba(147, 167, 223, 0.55);
+  border-left: 2px solid rgba(147, 167, 223, 0.55);
 }
 
 .kicker {
@@ -158,8 +158,8 @@ html, body {
 .roi {
   margin-left: 0.5rem;
   padding: 0.05rem 0.4rem;
-  border: 1px solid rgba(255, 71, 8, 0.5);
-  color: var(--signal);
+  border: 1px solid rgba(147, 167, 223, 0.5);
+  color: var(--console-signal);
   font-size: 0.66rem;
   letter-spacing: 0.12em;
 }
@@ -180,7 +180,7 @@ html, body {
   color: var(--console-mut);
 }
 .yardgrid dd { margin: 0.15rem 0 0; font-size: 0.95rem; }
-.yardgrid dd .mono { color: var(--signal); }
+.yardgrid dd .mono { color: var(--console-signal); }
 
 /* ---------- tables ---------- */
 
@@ -199,14 +199,14 @@ th {
   text-transform: uppercase;
   font-weight: 600;
   color: var(--console-mut);
-  border-bottom-color: rgba(236, 235, 231, 0.28);
+  border-bottom-color: rgba(232, 230, 224, 0.28);
 }
 th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .lanes tbody tr { cursor: pointer; }
-.lanes tbody tr:hover { background: rgba(236, 235, 231, 0.05); }
-.lanes tr.dl--active { background: rgba(255, 71, 8, 0.08); }
-.lane-name { color: var(--signal); }
+.lanes tbody tr:hover { background: rgba(232, 230, 224, 0.05); }
+.lanes tr.dl--active { background: rgba(147, 167, 223, 0.12); }
+.lane-name { color: var(--console-signal); }
 
 .chip {
   display: inline-block;
@@ -216,9 +216,9 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   border: 1px solid var(--console-line);
   color: var(--console-mut);
 }
-.chip--q { border-color: var(--signal); color: var(--signal); }
-.chip--a { border-color: rgba(236, 235, 231, 0.5); color: var(--console-fg); }
-.chip--err { border-color: var(--signal); color: var(--signal);
+.chip--q { border-color: var(--console-signal); color: var(--console-signal); }
+.chip--a { border-color: rgba(232, 230, 224, 0.5); color: var(--console-fg); }
+.chip--err { border-color: var(--console-signal); color: var(--console-signal);
   border-style: dashed; }
 
 /* ---------- kv ---------- */
@@ -250,8 +250,8 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   cursor: pointer;
   font-size: 0.8rem;
 }
-.keys li:hover { background: rgba(236, 235, 231, 0.05); }
-.keys li.active { background: rgba(255, 71, 8, 0.08); }
+.keys li:hover { background: rgba(232, 230, 224, 0.05); }
+.keys li.active { background: rgba(147, 167, 223, 0.12); }
 
 .value { margin-top: 0.9rem; border-top: 1px solid var(--console-line); padding-top: 0.8rem; }
 .payload {
@@ -269,8 +269,8 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* ---------- notes / state ---------- */
 
 .note { font-size: 0.74rem; color: var(--console-mut); margin: 0.65rem 0 0; }
-.note--warn { color: var(--signal); }
-.note--dark { color: var(--signal); }
+.note--warn { color: var(--console-signal); }
+.note--dark { color: var(--console-signal); }
 .noscript-note {
   max-width: 1060px;
   margin: 1.5rem;

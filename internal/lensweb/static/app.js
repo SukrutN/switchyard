@@ -46,9 +46,9 @@
   function paintMeta(meta) {
     el.target.textContent = meta.target || "-";
     el.tls.textContent = meta.tls ? "wrap on" : "plain";
-    el.tls.style.color = meta.tls ? "" : "var(--signal)";
+    el.tls.style.color = meta.tls ? "" : "var(--console-signal)";
     el.token.textContent = meta.tokened ? "gate up" : "auth off";
-    el.token.style.color = meta.tokened ? "" : "var(--signal)";
+    el.token.style.color = meta.tokened ? "" : "var(--console-signal)";
   }
 
   function setLive(ok) {
