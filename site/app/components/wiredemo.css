@@ -1,0 +1,288 @@
+/* ============================================================
+   demo — the wire, click-driven. A navy panel in the ticket and
+   tour voice: mercury hairlines, cobalt-tint corner ticks, one
+   status line that says exactly what the last publish matched.
+   ============================================================ */
+
+.demo {
+  border-top: 1px solid var(--line);
+}
+
+.demo__signal {
+  color: var(--signal-ink);
+}
+
+.demo__title {
+  margin-top: 0.9rem;
+  font-size: var(--step-3);
+}
+
+.demo__body {
+  margin-top: 1.2rem;
+  max-width: 34em;
+}
+
+.demo__body--mut {
+  color: var(--ink-70);
+}
+
+.demo__band {
+  margin-top: clamp(2rem, 5vw, 3.6rem);
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+/* ---------- the panel ---------- */
+
+.wiredemo {
+  position: relative;
+  background: var(--console-bg);
+  color: var(--console-fg);
+  border: 1px solid rgba(232, 230, 224, 0.2);
+  box-shadow: 10px 10px 0 rgba(13, 19, 85, 0.18);
+  overflow: hidden;
+}
+
+.wiredemo__corner {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  z-index: 2;
+}
+
+.wiredemo__corner--1 {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--console-signal);
+  border-left: 2px solid var(--console-signal);
+}
+
+.wiredemo__corner--2 {
+  top: -1px;
+  right: -1px;
+  border-top: 2px solid var(--console-signal);
+  border-right: 2px solid var(--console-signal);
+}
+
+.wiredemo__corner--3 {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 2px solid var(--console-signal);
+  border-left: 2px solid var(--console-signal);
+}
+
+.wiredemo__corner--4 {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--console-signal);
+  border-right: 2px solid var(--console-signal);
+}
+
+.wiredemo__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--console-mut);
+  background: rgba(232, 230, 224, 0.04);
+}
+
+.wiredemo__count {
+  color: var(--console-fg);
+}
+
+/* ---------- the publisher ---------- */
+
+.wiredemo__pub {
+  padding: 1.1rem 1.15rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.wiredemo__label {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--console-mut);
+}
+
+.wd-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.wd-sub {
+  background: transparent;
+  color: var(--console-mut);
+  border: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  padding: 0.34rem 0.6rem;
+  cursor: pointer;
+  transition: color 160ms var(--ease-rx), border-color 160ms var(--ease-rx);
+}
+
+.wd-sub:hover {
+  color: var(--console-signal);
+}
+
+.wd-sub[aria-pressed="true"] {
+  color: var(--console-fg);
+  border-color: var(--console-signal);
+}
+
+.wd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.wd-btn {
+  background: transparent;
+  color: var(--console-fg);
+  border: 1px solid var(--console-line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  padding: 0.34rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease-rx), color 160ms var(--ease-rx),
+    background-color 160ms var(--ease-rx);
+}
+
+.wd-btn--go {
+  background: var(--console-signal);
+  color: var(--navy);
+  border-color: var(--console-signal);
+  font-weight: 600;
+}
+
+.wd-btn--go:hover {
+  background: color-mix(in srgb, var(--console-signal) 82%, white);
+}
+
+.wd-btn--reset {
+  border-style: dashed;
+  color: var(--console-mut);
+}
+
+.wd-btn:focus-visible {
+  outline: 2px solid var(--console-signal);
+  outline-offset: 2px;
+}
+
+.wd-status {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--console-signal);
+}
+
+/* ---------- the subscribers: hairline rows, no boxes ---------- */
+
+.wiredemo__subs {
+  border-top: 1px solid var(--console-line);
+}
+
+.wd-subrow {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.8rem 1.15rem;
+  border-bottom: 1px solid var(--console-line);
+}
+
+.wd-subrow:last-child {
+  border-bottom: none;
+}
+
+.wd-id {
+  margin: 0 0 0.3rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: var(--console-mut);
+}
+
+.wd-pattern {
+  display: inline-block;
+  font-size: 0.8rem;
+  color: var(--console-fg);
+  background: rgba(232, 230, 224, 0.06);
+  border: 1px solid var(--console-line);
+  padding: 0.12rem 0.45rem;
+}
+
+.wd-deliveries {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-height: 1.2rem;
+}
+
+.wd-empty {
+  font-size: 0.78rem;
+  color: var(--console-mut);
+  opacity: 0.6;
+}
+
+.wd-delivery {
+  font-size: 0.78rem;
+  color: var(--console-mut);
+  animation: wd-in 0.38s var(--ease) both;
+}
+
+.wd-delivery b {
+  color: var(--console-fg);
+  font-weight: 600;
+}
+
+.wiredemo__foot {
+  margin: 0;
+  padding: 0.7rem 1.15rem 0.9rem;
+  border-top: 1px solid var(--console-line);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--console-mut);
+}
+
+@keyframes wd-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 720px) {
+  .wd-subrow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+  }
+}
+
+/* ---------- reduced motion: rows land, nothing slides ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .wd-delivery {
+    animation: none;
+  }
+
+  .wd-sub,
+  .wd-btn {
+    transition: none;
+  }
+}

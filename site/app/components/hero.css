@@ -73,7 +73,7 @@
   padding-block: clamp(1.25rem, 3vw, 2.25rem) clamp(1rem, 2vw, 1.75rem);
 }
 
-/* enerblock-style plate rows */
+/* plate rows: key, value, hairline rules */
 .hero__tags {
   display: flex;
   justify-content: space-between;
@@ -179,7 +179,14 @@
   font-size: 0.85rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+  transition: background 0.25s var(--ease), border-color 0.25s var(--ease),
+    color 0.25s var(--ease);
+}
+
+/* the reference's hover: the solid button answers in the deep navy */
+.btn--solid:hover {
+  background: var(--navy);
+  border-color: var(--navy);
 }
 
 .btn--ghost {
@@ -236,7 +243,7 @@
   background: var(--paper-raise);
   border: 1px solid var(--ink-30);
   padding: 1.3rem 1.4rem 1.05rem;
-  box-shadow: 9px 9px 0 rgba(22, 22, 26, 0.05);
+  box-shadow: 9px 9px 0 rgba(25, 37, 170, 0.08);
 }
 
 .ticket__corner {

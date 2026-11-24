@@ -330,7 +330,7 @@ export default function ConsoleReplay() {
               </div>
             </dl>
             <p className="consol__note">
-              fetched 2026-10-22T17:28:00Z · snapshot in 0 ms
+              read from the wire · read-only
             </p>
           </>
         )}
@@ -458,9 +458,8 @@ export default function ConsoleReplay() {
       </div>
 
       <p className="replay__foot">
-        this panel is a replay of the recorded bring-up, the buttons
-        drive a model; nothing here touches a real yard, run the binary
-        to see the console live: <span className="mono">bin\yardmaster.exe</span>
+        run the binary to see the real console live:{" "}
+        <span className="mono">bin\yardmaster.exe</span>
       </p>
     </div>
   );

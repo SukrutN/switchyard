@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 /**
- * The social card, printed at build time: ink paper, the claim,
+ * The social card, printed at build time: navy paper, the claim,
  * the wire's clock. Only the yard's own words and numbers.
  */
 export const alt = "switchyard: a Go message broker that never lies";
@@ -20,8 +20,8 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#16161a",
-          color: "#f1efeb",
+          background: "#0d1355",
+          color: "#e8e6e0",
           padding: 72,
         }}
       >
@@ -30,16 +30,16 @@ export default function OpengraphImage() {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            borderBottom: "1px solid rgba(241,239,235,0.25)",
+            borderBottom: "1px solid rgba(232,230,224,0.25)",
             paddingBottom: 24,
             fontSize: 26,
             letterSpacing: 8,
-            color: "rgba(241,239,235,0.7)",
+            color: "rgba(232,230,224,0.7)",
             textTransform: "uppercase",
           }}
         >
           <div style={{ display: "flex" }}>SWITCHYARD · A GO MESSAGE BROKER</div>
-          <div style={{ display: "flex", color: "#ff4708", fontWeight: 700 }}>
+          <div style={{ display: "flex", color: "#93a7df", fontWeight: 700 }}>
             V1.0.0
           </div>
         </div>
@@ -63,7 +63,7 @@ export default function OpengraphImage() {
             fontWeight: 700,
             letterSpacing: -3,
             lineHeight: 1.08,
-            color: "#ff4708",
+            color: "#93a7df",
           }}
         >
           lies.
@@ -74,11 +74,11 @@ export default function OpengraphImage() {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            borderTop: "1px solid rgba(241,239,235,0.25)",
+            borderTop: "1px solid rgba(232,230,224,0.25)",
             paddingTop: 24,
             fontSize: 26,
             letterSpacing: 2,
-            color: "rgba(241,239,235,0.8)",
+            color: "rgba(232,230,224,0.8)",
           }}
         >
           <div style={{ display: "flex" }}>17.4k probes/s · p95 ~ 0.52 ms</div>

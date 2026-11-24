@@ -2,15 +2,16 @@ import Reveal from "./Reveal";
 import "./promise.css";
 
 /**
- * The protocol promise: v1 is frozen, families append, op numbers
- * never move. The table is lifted from the spec's own family ranges.
+ * The protocol promise: v1 is frozen, and the table is the capability
+ * map, one plain sentence per op family. Op ranges come from the
+ * spec's own family table.
  */
-const FAMILIES: Array<{ name: string; sections: string; ops: string }> = [
-  { name: "pub/sub core", sections: "§2.1–§2.7", ops: "0x01–0x0A" },
-  { name: "durable streams (\"lanes\")", sections: "§2.8–§2.17", ops: "0x0B–0x14" },
-  { name: "key-value state", sections: "§2.18–§2.23", ops: "0x15–0x1A" },
-  { name: "the yardmaster lens (read-only)", sections: "§2.24–§2.27", ops: "0x1B–0x1E" },
-  { name: "the gate and the wrap", sections: "§2.28–§2.29", ops: "0x1F–0x20" },
+const FAMILIES: Array<{ name: string; ops: string; gives: string }> = [
+  { name: "pub/sub core", ops: "0x01–0x0A", gives: "publish, subscribe, and wildcard matching" },
+  { name: "durable streams (\"lanes\")", ops: "0x0B–0x14", gives: "topics on the journal that replay what was never acknowledged" },
+  { name: "key-value state", ops: "0x15–0x1A", gives: "set, get, delete, and list on the same journal" },
+  { name: "the yardmaster lens", ops: "0x1B–0x1E", gives: "live, read-only monitoring over the wire" },
+  { name: "the gate and the wrap", ops: "0x1F–0x20", gives: "token auth before HELLO, TLS around every byte" },
 ];
 
 export default function PromiseSection() {
@@ -19,7 +20,7 @@ export default function PromiseSection() {
       <div className="wrp promise__grid">
         <div className="promise__copy">
           <p className="eyebrow">
-            <span className="promise__signal">06</span> · the promise
+            <span className="promise__signal">07</span> · the promise
           </p>
           <h2 className="display promise__title" data-anim="wipe">
             <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
@@ -27,15 +28,16 @@ export default function PromiseSection() {
             </span>
           </h2>
           <p className="promise__body">
-            Protocol v1 is frozen. Op numbers never move, families only
-            append, error codes keep their names. A client written against
-            §2 today will still wire up against a later 1.x yard, unchanged.
+            Version 1 of the wire protocol is frozen. Operation numbers,
+            framing, and error codes stay exactly where they are in every
+            1.x release, so the client you build today keeps working
+            against future yards without a rewrite.
           </p>
           <p className="promise__body promise__body--mut" data-fill>
-            The spec is the wire&apos;s only definition, and{" "}
-            <span className="mono promise__chip">internal/wire</span> is the
-            only code that defines it. The whole contract is 29 numbered
-            sections:
+            The whole contract fits in one file,{" "}
+            <span className="mono promise__chip">docs/PROTOCOL.md</span>, and
+            one package implements it. Five families of operations,
+            thirty-two in all:
           </p>
           <div className="promise__cta">
             <a
@@ -60,21 +62,21 @@ export default function PromiseSection() {
         <div className="promise__table">
           <div className="promise__thead mono" aria-hidden="true">
             <span>family</span>
-            <span>sections</span>
             <span>ops</span>
+            <span>what it gives you</span>
           </div>
           {FAMILIES.map((f, i) => (
             <Reveal key={f.name} delay={i * 60}>
               <div className="promise__row">
                 <span className="promise__name">{f.name}</span>
-                <span className="mono promise__sec">{f.sections}</span>
                 <span className="mono promise__ops">{f.ops}</span>
+                <span className="promise__gives">{f.gives}</span>
               </div>
             </Reveal>
           ))}
           <p className="promise__note">
-            Appends land after the last family; earlier numbers stay
-            exactly where they are.
+            New operations append after the last family; existing numbers
+            never move.
           </p>
         </div>
       </div>

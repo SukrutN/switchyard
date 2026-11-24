@@ -47,11 +47,6 @@
   margin-bottom: 0.35rem;
 }
 
-/* a second heading inside one column needs air above it */
-.footer__head--gap {
-  margin-top: 1.1rem;
-}
-
 .footer__col a {
   text-decoration: none;
   color: var(--ink-70);

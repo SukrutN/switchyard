@@ -128,7 +128,7 @@ export default function Motion() {
         lastY = window.scrollY;
       }
 
-      // banner folds back against downward scroll (tresmares grammar)
+      // banner folds back against downward scroll
       if (header) {
         const y = window.scrollY;
         if (y > 150 && y > lastHeaderY + 6) {

@@ -1,35 +1,41 @@
 /* ============================================================
    switchyard-site — design tokens and base.
-   Paper, ink, one signal color. Hairlines, blueprint lines,
-   a monospace voice for the operator. Nothing permissive:
-   every token exists because at least one section uses it.
+   White paper, one blue ink, a cobalt signal used like a lamp.
+   Hairlines carry the structure; the monospace voice speaks
+   for the operator. Nothing permissive: every token exists
+   because at least one section uses it. The blues are adopted
+   verbatim from the owner's two reference sites.
    ============================================================ */
 
 :root {
-  /* paper & ink — warm industrial grey, near-black */
-  --paper: #f1efeb;
-  --paper-raise: #e9e6e0;
-  --ink: #16161a;
-  --ink-70: color-mix(in srgb, var(--ink) 70%, transparent);
-  /* small labels and quiet prose; mixed at 64% so it clears 4.5:1 on paper */
-  --ink-50: color-mix(in srgb, var(--ink) 64%, transparent);
+  /* paper & ink — white paper, the reference blue */
+  --paper: #ffffff;
+  --paper-raise: #e8e6e0;
+  --ink: #1925aa;
+  --ink-70: color-mix(in srgb, var(--ink) 78%, transparent);
+  /* small labels and quiet prose; mixed at 70% so it clears 4.5:1 on paper */
+  --ink-50: color-mix(in srgb, var(--ink) 70%, transparent);
   --ink-30: color-mix(in srgb, var(--ink) 30%, transparent);
-  --line: color-mix(in srgb, var(--ink) 15%, transparent);
+  /* the reference draws its rules at full ink strength */
+  --line: var(--ink);
 
-  /* the signal: one hot color, used sparingly, never for body text */
-  --signal: #ff4708;
-  /* signal for small text on paper: the hot orange clears only 2.97:1
-     at body sizes, so small labels read the set-down ink instead */
-  --signal-ink: #b23a03;
+  /* the signal: one cobalt, used sparingly, never for body text */
+  --signal: #3b60c5;
+  /* signal for small text on paper: the set-down cobalt clears 4.5:1
+     at body sizes, where the bright one only clears 5.7:1 on a good day */
+  --signal-ink: #365abd;
 
-  /* the console band: dark sections speak like the yard log */
-  --console-bg: #101013;
-  --console-fg: #ecebe7;
-  --console-mut: rgba(236, 235, 231, 0.68);
-  --console-line: rgba(236, 235, 231, 0.14);
+  /* the console band: deep navy, mercury voice */
+  --navy: #0d1355;
+  --console-bg: var(--navy);
+  --console-fg: #e8e6e0;
+  --console-mut: rgba(232, 230, 224, 0.68);
+  --console-line: rgba(232, 230, 224, 0.14);
+  /* the cobalt lifted toward mercury, so small signal text reads on navy */
+  --console-signal: #93a7df;
 
   --ease: cubic-bezier(0.2, 0.65, 0.25, 1);
-  /* the borrowed answer-ease: slow in, hard out (enerblock's reveal) */
+  /* the answer-ease: slow in, hard out */
   --ease-rx: cubic-bezier(0.53, 0, 0, 1);
 
   /* the two voices: tight grotesk for the claims, mono for the operator */
@@ -50,10 +56,10 @@
 
 @supports not (color: color-mix(in srgb, red 50%, blue)) {
   :root {
-    --ink-70: rgba(22, 22, 26, 0.7);
-    --ink-50: rgba(22, 22, 26, 0.5);
-    --ink-30: rgba(22, 22, 26, 0.3);
-    --line: rgba(22, 22, 26, 0.15);
+    --ink-70: rgba(25, 37, 170, 0.78);
+    --ink-50: rgba(25, 37, 170, 0.7);
+    --ink-30: rgba(25, 37, 170, 0.3);
+    --line: #1925aa;
   }
 }
 
@@ -162,14 +168,6 @@ button {
   margin: 0;
 }
 
-/* blueprint grid: faint drafting lines, like a yard map */
-.bp-grid {
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 72px 72px;
-}
-
 /* console band: dark, mono, whispered */
 .console {
   background: var(--console-bg);
@@ -196,7 +194,7 @@ button {
 
 /* ---------- scroll reveals ----------
    .reveal children start below, .in answers with an ease.
-   An IntersectionObserver (unit 02+) adds .in no-js safe. */
+   An IntersectionObserver adds .in, no-js safe. */
 
 .reveal {
   opacity: 0;

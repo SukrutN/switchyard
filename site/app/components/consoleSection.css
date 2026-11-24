@@ -1,8 +1,7 @@
 /* ============================================================
    consol — the site mirrors the yardmaster console's view.
-   The same dark band grammar the numbers section owns; the
-   plates, gate chips, and tables are the console's own, as it
-   rendered one real snapshot of a journaled yard.
+   The same navy band grammar the numbers section owns; the
+   plates, gate chips, and tables are the console's own.
    ============================================================ */
 
 .consol {
@@ -11,27 +10,10 @@
   border-top: 1px solid var(--ink);
   padding-block: var(--block);
   position: relative;
-  overflow: hidden;
-}
-
-/* dark drafting lines, keyed to the band's own hairline */
-.consol::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--console-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--console-line) 1px, transparent 1px);
-  background-size: 72px 72px;
-  pointer-events: none;
-}
-
-.consol .wrp {
-  position: relative;
 }
 
 .consol__signal {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 /* an ink-tinted eyebrow vanishes on the dark band */
@@ -88,7 +70,7 @@
 }
 
 .consol__chip--warn b {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 .consol__chip--live {
@@ -101,7 +83,7 @@
   width: 7px;
   height: 7px;
   margin-right: 0.35rem;
-  background: var(--signal);
+  background: var(--console-signal);
   vertical-align: 1px;
 }
 
@@ -121,8 +103,8 @@
   left: -1px;
   width: 10px;
   height: 10px;
-  border-top: 2px solid var(--signal);
-  border-left: 2px solid var(--signal);
+  border-top: 2px solid var(--console-signal);
+  border-left: 2px solid var(--console-signal);
 }
 
 .consol__kicker {
@@ -141,8 +123,8 @@
 .consol__roi {
   margin-left: 0.5rem;
   padding: 0.05rem 0.4rem;
-  border: 1px solid var(--signal);
-  color: var(--signal);
+  border: 1px solid var(--console-signal);
+  color: var(--console-signal);
   font-size: 0.64rem;
   letter-spacing: 0.12em;
 }
@@ -181,7 +163,7 @@
 }
 
 .consol__cell dd .consol__hot {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 /* the lanes table */
@@ -215,11 +197,11 @@
 }
 
 .consol__lane-name {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 .consol__row--active {
-  background: color-mix(in srgb, var(--signal) 8%, transparent);
+  background: color-mix(in srgb, var(--console-signal) 12%, transparent);
 }
 
 .consol__chip--state {
@@ -276,7 +258,7 @@
 }
 
 .consol__keys li.active {
-  background: color-mix(in srgb, var(--signal) 8%, transparent);
+  background: color-mix(in srgb, var(--console-signal) 12%, transparent);
 }
 
 .consol__keyscol {
@@ -310,12 +292,6 @@
   color: var(--console-mut);
 }
 
-@media (max-width: 720px) {
-  .consol .eyebrow .consol__stamp {
-    display: none;
-  }
-}
-
 /* dark-refusal tint on the whole band */
 .consol__band--dark .consol__plate,
 .consol__band--dark .consol__gate {
@@ -327,11 +303,11 @@
 }
 
 .consol__chip--dark b {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 .consol__note--dark {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 /* button bar — hairline chips in the band's own mono */
@@ -355,12 +331,12 @@
 }
 
 .replay__btn:hover:not(:disabled) {
-  border-color: var(--signal);
-  color: var(--signal);
+  border-color: var(--console-signal);
+  color: var(--console-signal);
 }
 
 .replay__btn:focus-visible {
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--console-signal);
   outline-offset: 2px;
 }
 
@@ -424,7 +400,7 @@
 }
 
 .replay__keyline:focus-visible {
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--console-signal);
   outline-offset: 1px;
 }
 

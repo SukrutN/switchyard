@@ -10,6 +10,8 @@ const nextConfig = {
   trailingSlash: true,
   basePath: isCI ? BASE_PATH : "",
   images: { unoptimized: true },
+  // no framework branding in the corner of local runs either
+  devIndicators: false,
 };
 
 export default nextConfig;

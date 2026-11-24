@@ -12,7 +12,7 @@ export default function TourSection() {
       <div className="wrp toursec__grid">
         <div className="toursec__copy">
           <p className="eyebrow">
-            <span className="toursec__signal">03</span> · operate it
+            <span className="toursec__signal">04</span> · operate it
           </p>
           <h2 className="display toursec__title" data-anim="wipe">
             <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
@@ -28,17 +28,17 @@ export default function TourSection() {
               ping · pub · sub · stream · kv · yard
             </span>{" "}
             built on{" "}
-            <span className="mono toursec__chip">internal/client</span>: the
-            same library the test suite drives. Every verb shares one dial
-            set (
+            <span className="mono toursec__chip">internal/client</span>, the
+            same client library your own code would use. Every verb shares
+            one dial set (
             <span className="mono toursec__chip">-addr -auth -tls -insecure</span>
             ).
           </p>
           <p className="toursec__body toursec__body--mut">
-            The panel on the right replays the README&apos;s quickstart on a
-            loop: a ping, a pub/sub round trip, a journaled push, a KV set,
-            then the yardmaster&apos;s read. Every line is what the wire
-            actually prints.
+            The panel on the right runs the quickstart on a loop: a ping, a
+            pub/sub round trip, a journaled push, a KV set, then the
+            yardmaster&apos;s read. Every line is what the wire actually
+            prints.
           </p>
         </div>
 
