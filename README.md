@@ -1,20 +1,19 @@
 # SWITCHYARD
 
 A Go message broker you can run from one binary and understand from one
-file. Four op families on one wire; a journal receipt behind every
+file. Five op families on one wire, with a journal receipt behind every
 durable claim.
 
-**The yard never lies.** What lands on the wire is exactly what every
-subscriber gets — in accepted order, with nothing invented between sender
-and receiver. That sentence is a test suite, not a slogan: `internal/server`
-enforces it frame by frame.
+What you publish is exactly what every subscriber receives, in the
+order the broker accepted it. `internal/server` enforces that order
+frame by frame.
 
-Status: **v1.0.0** — the yard ships. Protocol v1 is frozen (families
-append, numbers never move), the client library and spur speak the
-whole surface, and the bench rod prints honest numbers: pub/sub, durable
-streams ("lanes"), KV, the Yardmaster lens, token auth with TLS sessions.
-See it laid out end to end: https://sukrutn.github.io/switchyard/
-— one page covering the laws, the numbers, the tour and the quickstart.
+Status: **v1.0.0**. Protocol v1 is frozen (families append, numbers
+never move), the client library and spur speak the whole surface, and
+yardstick measures all of it: pub/sub, durable streams ("lanes"), KV,
+the Yardmaster lens, token auth with TLS sessions. The showcase site
+lays it out end to end, including a live demo of the delivery rules:
+https://sukrutn.github.io/switchyard/
 
 ## Quickstart
 
@@ -39,7 +38,7 @@ PowerShell. `spur` speaks the wire protocol through `internal/client` —
 the same library the test suite drives, so the CLI exercises exactly the
 lanes your products would.
 
-That first yard is in-memory — pure gossip, nothing on disk. Give the
+That first yard is in memory only, with nothing on disk. Give the
 journal a home and the lane verbs light up; restart on the same
 `-data-dir` and a durable consumer replays exactly the rows the last
 session never acknowledged:
@@ -97,7 +96,7 @@ Or, one command, fully scripted:
 - **spur** — the reference CLI, the full verb set — ping / pub / sub /
   stream / kv / yard — with one dial vocabulary (`-addr`, `-auth`,
   `-tls`, `-insecure`) on every verb. `cmd/spur`.
-- **yardstick** — the measuring rod: ping latencies, sustained fan-out,
+- **yardstick** — the benchmark suite: ping latencies, sustained fan-out,
   journaled rows and keys, guarded by a counting reader that refuses to
   print dropped work. `cmd/yardstick`.
 - **Tests over real TCP fixtures** — per-family wire codec suites in
@@ -130,34 +129,32 @@ internal/linehost      the linehost bridge: minimal Modbus TCP client + talker
 docs/PROTOCOL.md       the whole wire contract
 scripts/demo.ps1       reproducible bring-up
 scripts/bench.ps1      reproducible numbers (throwaway yard, full teardown)
-site/                  the showcase site + the TS engine family (Next.js; Pages at /switchyard/)
+site/                  the showcase site (Next.js; Pages at /switchyard/)
 ```
 
 ## Design notes
 
-- **Boring core.** No reflection in codecs. One reader goroutine and one
-  writer goroutine per session; the writer is the only thing touching
-  the socket for writes, which is what makes per-subscription ordering a
-  property of construction rather than of luck.
-- **Bounded by default.** 1 MiB frames, 4096-deep delivery queues (the
-  burst-dam), 30s+10s heartbeat windows. Configure up; the protocol
-  ceiling is 4 MiB.
+- **Boring core.** No reflection in the codecs. One reader goroutine and
+  one writer goroutine per session, and the writer is the only
+  goroutine that writes to the socket. Per-subscription ordering comes
+  from that construction, not from luck.
+- **Bounded by default.** Frames carry capacity up to 4 MiB (1 MiB by
+  default). Delivery queues sit 4,096 entries deep, and idle sessions
+  close on a 30 s window with a 10 s grace. Every bound is a default,
+  adjustable to the workload.
 - **Slow-die bias.** A session that cannot keep up gets one fatal
-  `SLOW_CONSUMER` rather than letting the yard grow memory without
-  bound. Catch up before you stall again. The queue dam is wide enough
-  for honest bursty traffic — when the verdict lands, it means the
-  paused *reader*, not arithmetic (the writer batch-drains and ships
-  frames coalesced for exactly this reason).
+  `SLOW_CONSUMER` instead of letting the broker's memory grow without
+  bound. The queues absorb bursts; when the kill lands it names the
+  reader that stalled, because the writer batch-drains and coalesces
+  frames rather than blocking.
 
 ## The yard by the numbers
 
 `yardstick` measures what an operator gets: round-trip probes, fan-out
-through the delivery queues, and the journal's per-record fsync story —
-a `lane` row or a KV set is not acknowledged until its bytes are on
-disk. Fire-and-forget has no backpressure on the wire, so the pubsub
-scene publishes in waves the counting reader gates: nothing prints from
-dropped work, and the rate is what the yard sustains, not an overflow
-dice roll.
+through the delivery queues, and the journal's per-record fsync behavior.
+A lane row or a KV set is not acknowledged until its bytes are on disk.
+The pubsub scene publishes in waves that a counting reader gates, so a
+dropped delivery stops the run instead of inflating the rate.
 
 One command reproduces the whole table:
 
@@ -166,8 +163,8 @@ powershell -File scripts\bench.ps1        # throwaway yard; -Rows 2000 -Payload 
 ```
 
 Defaults, throwaway yard on 127.0.0.1, Windows 11, Go 1.25,
-Intel(R) Core(TM) i7-8700 CPU @ 3.20 GHz. Three consecutive runs
-(2026-10-21); the spread is machine noise, shown so the table cannot lie:
+Intel(R) Core(TM) i7-8700 CPU @ 3.20 GHz, three consecutive runs
+(2026-10-21). The spread across runs is machine noise:
 
 | scenario | gauge                                  | three-run range            |
 | -------- | -------------------------------------- | -------------------------- |
@@ -176,23 +173,22 @@ Intel(R) Core(TM) i7-8700 CPU @ 3.20 GHz. Three consecutive runs
 | lane     | rows/sec (2,000 rows * 128 B, receipt per row) | 228–273             |
 | kv       | keys/sec (2,000 sets * 128 B, receipt per set) | 273–297             |
 
-Read it the yardmaster's way: the top half is the wire's clock (loopback
-gossip rates); the bottom half is a lucky disk's clock — per-record
-fsync on a system SSD. On slower disks the journal numbers fall with the
-hardware, by design: the receipt is a promise, not a hope.
+Read the table in two halves: ping and pubsub measure the wire itself
+(loopback, no disk in the path); lane and KV measure the journal
+(per-record fsync on a system SSD). On slower disks the journal numbers
+fall with the hardware, by design: the receipt means the row is on disk.
 
-Numbers lie when their conditions are silent: the rod prints its yard
-identity, the counting reader refuses runs with dropped deliveries, and
-the bench script tears its throwaway yard down before it exits.
+Two safeguards keep the table honest: the counting reader refuses a run
+with dropped deliveries, and the bench script tears its throwaway yard
+down before it exits.
 
 ## The Yardmaster console
 
-The yard speaks wire, not web pages — but an operator's legibility is
-worth as much as a consumer's receipts. `yardmaster` is the yard's
-browser: a second binary that dials the running yard as an ordinary
-client (same gate, same wrap, same dial vocabulary) and mirrors what
-the console family (§2.24–§2.27) and the KV reads (§2.19–§2.21) answer,
-in pages that ride inside the binary itself:
+The yard speaks wire, not web pages, but an operator still needs to
+see what it is doing. `yardmaster` is the yard's console: a second
+binary that dials the running yard as an ordinary client (same gate,
+same wrap, same dial vocabulary) and renders the yard's state in pages
+that ride inside the binary itself:
 
 ```
 bin\yardmaster.exe                   console on 127.0.0.1:8060, yard on 127.0.0.1:4780
@@ -202,21 +198,20 @@ bin\yardmaster.exe -addr YARD:4780 -tls -auth TOKEN -http OTHER:8060
 The console owns no levers. Every panel is a read: the yard card
 (version, uptime, sessions, quarantine), the lane table (sequence,
 journal bytes, key count, consumers with their durable floors), and a
-key–value browser that can look but never set. A dark yard prints its
-refusal in the wire's own words instead of pretending; quarantine is
-reported, not cleared. The page polls while you are watching it and
-stops when you are not — a browser tab somebody left in the background
-asks the yard nothing.
+key-value browser that can look but never set. When the yard is
+unreachable, the console prints the refusal it got instead of
+pretending; quarantine is reported, never cleared. The page polls only
+while its tab is visible.
 
-A console is a client too: adding it touches no op, no family, and no
-version — the yardmaster cannot write a single byte to the yard.
+A console is a client too: adding it touched no op, no family, and no
+version, and the yardmaster cannot write a single byte to the yard.
 
-## The linehost — hosting a line
+## The linehost: hosting a line
 
 A sorting line's supervisor is a switchyard client. `linehost` hosts the
 fluxline line (see the [fluxline program](https://github.com/SukrutN/fluxline/tree/main/engine)):
 it consumes release work from a durable lane, speaks it to the line's
-Modbus TCP register surface — the host command block — and journals every
+Modbus TCP register surface (the host command block), and journals every
 verdict the floor hands back to the same lane:
 
 ```
@@ -244,10 +239,10 @@ refuses a second command while one is armed, so the rest wait in the
 lane); a **heartbeat in every cycle**, carried inside the command frame
 itself so an in-flight release never starves the watchdog; verdicts
 journal **before** the lane ack, so a crash replays the work instead of
-losing the receipt — at-least-once, with sweeper redeliveries recognized,
-not re-run; and a command that never gets its receipt is journaled
-`expired` once its patience runs out. Giving up honestly, never
-pretending: the host can only request, the floor's law has the last word.
+losing the receipt (at-least-once, with sweeper redeliveries recognized,
+not re-run); and a command that never gets its receipt is journaled
+`expired` once its patience runs out. The host can only request: the
+floor has the last word.
 
 `internal/linehost` carries the bridge: a dependency-free Modbus TCP
 client (MBAP plus FC03/FC06/FC16 — nothing else the host needs) tested
@@ -256,9 +251,9 @@ against a real yard.
 
 ## Contributing
 
-PR-based flow, conventional commits, CI (fmt, vet, race tests, the site's
-engine suite, and the WES/waybill integrations against this repo's own yard)
-gates every merge — see [CONTRIBUTING.md](CONTRIBUTING.md).
+PR-based flow, conventional commits, CI (fmt, vet, race tests, and
+the site's typecheck and build) gates every merge — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

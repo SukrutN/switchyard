@@ -35,8 +35,7 @@ The long version is this file.
   sockets, who wakes whom. The test suite's lifecycle tests exist to
   leak goroutines visibly.
 - Boring over clever. If a fix needs several intertwined goroutines and
-  an atomic flag, the design probably wants outdoor rethinking, not
-  more flags.
+  an atomic flag, the design probably needs rethinking, not more flags.
 
 ## Building and testing
 

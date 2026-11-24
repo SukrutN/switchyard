@@ -34,6 +34,51 @@ and versions follow [SemVer](https://semver.org/).
   request, opens, reads, closes — with its own handler test suite
   (honest snapshot shapes, row-carried refusals, dark-budget, absence
   answered as a fact).
+- The wire demo on the showcase site: a click-driven panel that runs
+  the broker's subject-matching semantics in the page. Pick a subject,
+  publish it, and each matching subscriber receives the message with
+  its own gapless sequence number.
+
+### Changed
+- The showcase site uses the owner's blue system: white paper, blue
+  ink, a cobalt signal, and deep navy console bands, with hairline
+  rules carrying the structure. The blueprint graph-paper backdrops
+  and the boxed gauge and op-family tables are gone, replaced by
+  hairline-separated rows; the favicon and the social card follow the
+  same palette.
+- The yardmaster console's embedded pages use the same tokens as the
+  site's console bands: the deep navy paper, the mercury text, and a
+  cobalt signal readable on navy. The construction is unchanged
+  (plates, corner ticks, the marker wipe), and no op, client, or
+  handler code changed.
+- The page copy states capabilities instead of narrating development:
+  the laws drop the test-suite prose and frame the bounds as
+  adjustable defaults (frames carry capacity up to 4 MiB), the bench
+  notes say in plain words what each figure measures, the console
+  section drops its snapshot provenance, the promise section explains
+  what a frozen protocol buys a client and lists the families as a
+  capability map, and the demo's match rules are plain words. The
+  conditions line and the reproduce command are off the page; the
+  bench script itself is unchanged in the repo. The page also stops
+  pointing at its own documentation or deployment: the tour and
+  step 4 no longer cite the README, and the footer no longer
+  describes how the site is built and deployed.
+- Section labels run 01–07 with the demo second, right after the
+  laws it demonstrates. The development indicator no longer shows in
+  local runs.
+- The README, the site README, CONTRIBUTING, and SECURITY read in the
+  same voice: plain sentences, no em-dash asides, and the tools called
+  what they are (the benchmark suite, not "the rod").
+
+### Removed
+- The demo units that shipped with the old site family: the
+  `boxcar`, `despatch`, `foreman`, `gangway`, and `dcsim` pages, the
+  seven engine packages under `site/engine/`, their npm scripts, and
+  the CI jobs that gated on them. They were warehouse simulations,
+  not broker work. Their history remains in the repository's earlier
+  commits.
+- The birthlog (release history) section from the page. The
+  CHANGELOG.md remains the record of releases.
 
 ## [1.0.0] — 2026-10-21
 
