@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Renders a number that counts up once the element scrolls into view.
- * Reduced-motion readers get the final value immediately, the count is
- * decoration; the number is the point.
+ * The page ships the true value: without JavaScript, the number is
+ * simply there. Reduced-motion readers get the final value immediately,
+ * and the count-up is decoration; the number is the point.
  */
 export default function CountUp({
   to,
@@ -19,7 +20,7 @@ export default function CountUp({
   duration?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [val, setVal] = useState(0);
+  const [val, setVal] = useState(to);
   const armed = useRef(false);
 
   useEffect(() => {
@@ -30,6 +31,9 @@ export default function CountUp({
       setVal(to);
       return;
     }
+
+    /* JS is live and motion is welcome: arm from zero, then count */
+    setVal(0);
 
     const io = new IntersectionObserver(
       (entries) => {

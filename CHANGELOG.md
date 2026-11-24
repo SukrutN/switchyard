@@ -69,6 +69,9 @@ and versions follow [SemVer](https://semver.org/).
 - The README, the site README, CONTRIBUTING, and SECURITY read in the
   same voice: plain sentences, no em-dash asides, and the tools called
   what they are (the benchmark suite, not "the rod").
+- The benchmark figures ship their true values in the page's static
+  HTML. The count-up starts from zero only when the animation runs, so
+  a reader without JavaScript sees the real numbers, not zeros.
 
 ### Removed
 - The demo units that shipped with the old site family: the
