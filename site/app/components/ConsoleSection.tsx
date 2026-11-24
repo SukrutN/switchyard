@@ -17,10 +17,7 @@ export default function ConsoleSection() {
     <section className="section section--pad consol" id="console">
       <div className="wrp">
         <p className="eyebrow">
-          <span className="consol__signal">04</span> · the console
-          <span className="consol__stamp">
-            {" "}· replay from snapshot 2026-10-22T17:28:00Z
-          </span>
+          <span className="consol__signal">05</span> · the console
         </p>
         <h2 className="display consol__title" data-anim="wipe">
           <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
@@ -31,19 +28,16 @@ export default function ConsoleSection() {
         </h2>
         <p className="consol__body" data-fill>
           <span className="mono">yardmaster</span> is the yard&apos;s
-          console. It&apos;s a companion binary that runs beside a live
-          yard, connects as an ordinary client through the same gate and
-          framing <span className="mono">spur</span> uses, and shows what
-          the console family (§2.24–§2.27) and the KV reads (§2.19–§2.21)
-          answer. The pages it serves are part of the binary.
+          console: a companion binary that runs beside a live yard,
+          connects as an ordinary client, and shows its state, its
+          sessions, its lanes, and its keys. The pages it serves are
+          part of the binary.
         </p>
         <p className="consol__body consol__body--mut" data-fill>
-          It owns no levers: every panel is a read, quarantine is
-          reported, not cleared, and the console cannot write a single
-          byte to the yard. The panel below is a replay of the recorded
-          bring-up, so you can publish, attach, ack, and cut the wire
-          without a real yard. When you want the real one, run the
-          binary.
+          Every panel is a read: the console cannot write a single byte
+          to the yard, and quarantine is reported, never cleared. The
+          panel below is a working replica: click through a publish, an
+          attach, an ack, and a wire cut.
         </p>
 
         <Reveal delay={80}>

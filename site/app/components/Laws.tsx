@@ -20,12 +20,6 @@ export default function Laws() {
                 <span className="wl__t">Three laws, enforced.</span>
               </span>
             </h2>
-            <p className="laws__note">
-              Each law below is enforced by{" "}
-              <span className="mono laws__mono-inline">internal/server</span>{" "}
-              and by the test suites over real sockets. The words and the code
-              agree.
-            </p>
             <div className="xhair laws__xhair" aria-hidden="true">
               <span className="xhair__x">LAW.SHEET</span>
               <span className="xhair__y">REV 1.0</span>
@@ -44,10 +38,9 @@ export default function Laws() {
                 <p className="law__eyebrow">LAW 01</p>
                 <h3 className="law__name display">What you publish is what they get.</h3>
                 <p className="law__body">
-                  What lands on the wire is exactly what every subscriber
-                  gets, in accepted order, with nothing invented between
-                  sender and receiver, and a test suite over real sockets
-                  holds it that way.
+                  A subscriber receives the same bytes the publisher sent, in
+                  the order the yard accepted them, with nothing invented
+                  in between.
                 </p>
               </div>
             </article>
@@ -62,9 +55,11 @@ export default function Laws() {
                 <p className="law__eyebrow">LAW 02</p>
                 <h3 className="law__name display">Bounded by default.</h3>
                 <p className="law__body">
-                  1&nbsp;MiB frames, 4096-deep delivery queues (the burst
-                  dam), 30&nbsp;s+10&nbsp;s heartbeat windows. Configure up;
-                  the protocol ceiling is 4&nbsp;MiB.
+                  Frames carry capacity up to 4&nbsp;MiB (1&nbsp;MiB by
+                  default). Delivery queues sit 4,096 entries deep, and idle
+                  sessions close on a 30&nbsp;s heartbeat window with a
+                  10&nbsp;s grace. Each of these is a default sized for
+                  safety, adjustable to your workload.
                 </p>
               </div>
             </article>

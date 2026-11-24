@@ -4,7 +4,7 @@
    repaid with only tokens and hairlines.
    ============================================================ */
 
-/* ---------- 1. headline wipes (enerblock's marker pass) ---------- */
+/* ---------- 1. headline wipes: a marker pass ---------- */
 
 [data-anim="wipe"] .wl {
   display: block;
@@ -66,13 +66,13 @@
   }
 }
 
-/* ---------- 2. scroll-fill bodies (tresmares' ink fill) ---------- */
+/* ---------- 2. scroll-fill bodies ---------- */
 
 [data-fill] .fill-w {
   will-change: opacity;
 }
 
-/* ---------- 3. the tour lens (enerblock's cross-hair) ---------- */
+/* ---------- 3. the tour lens: a cursor crosshair ---------- */
 
 .lens {
   position: absolute;
@@ -93,7 +93,7 @@
   bottom: 0;
   left: 0;
   width: 1px;
-  background: rgba(255, 71, 8, 0.28);
+  background: rgba(147, 167, 223, 0.4);
   will-change: transform;
 }
 
@@ -103,7 +103,7 @@
   right: 0;
   top: 0;
   height: 1px;
-  background: rgba(255, 71, 8, 0.28);
+  background: rgba(147, 167, 223, 0.4);
   will-change: transform;
 }
 
@@ -113,7 +113,7 @@
   left: -3.5px;
   width: 7px;
   height: 7px;
-  background: var(--signal);
+  background: var(--console-signal);
   will-change: transform;
 }
 
@@ -124,9 +124,9 @@
   padding: 0.18rem 0.4rem;
   font-size: 0.62rem;
   letter-spacing: 0.1em;
-  color: rgba(236, 235, 231, 0.75);
-  background: rgba(16, 16, 19, 0.82);
-  border: 1px solid rgba(255, 71, 8, 0.35);
+  color: rgba(232, 230, 224, 0.75);
+  background: rgba(13, 19, 85, 0.85);
+  border: 1px solid rgba(147, 167, 223, 0.4);
   white-space: nowrap;
   will-change: transform;
 }
@@ -160,7 +160,7 @@
   pointer-events: none;
 }
 
-/* ---------- 5. link wipe underline (tresmares' ink swipe) ---------- */
+/* ---------- 5. link wipe underline ---------- */
 
 .wl-link {
   position: relative;

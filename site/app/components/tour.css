@@ -1,13 +1,13 @@
 /* ============================================================
-   tour — the terminal panel: dark, framed by signal corner
-   ticks like the receipt ticket, drafting lines barely lit.
+   tour — the terminal panel: navy, framed by signal corner
+   ticks like the receipt ticket, mercury hairlines.
    ============================================================ */
 
 .tour {
   position: relative;
   background: var(--console-bg);
-  border: 1px solid rgba(236, 235, 231, 0.2);
-  box-shadow: 10px 10px 0 rgba(16, 16, 19, 0.12);
+  border: 1px solid rgba(232, 230, 224, 0.2);
+  box-shadow: 10px 10px 0 rgba(13, 19, 85, 0.18);
   overflow: hidden;
 }
 
@@ -21,29 +21,29 @@
 .tour__corner--1 {
   top: -1px;
   left: -1px;
-  border-top: 2px solid var(--signal);
-  border-left: 2px solid var(--signal);
+  border-top: 2px solid var(--console-signal);
+  border-left: 2px solid var(--console-signal);
 }
 
 .tour__corner--2 {
   top: -1px;
   right: -1px;
-  border-top: 2px solid var(--signal);
-  border-right: 2px solid var(--signal);
+  border-top: 2px solid var(--console-signal);
+  border-right: 2px solid var(--console-signal);
 }
 
 .tour__corner--3 {
   bottom: -1px;
   left: -1px;
-  border-bottom: 2px solid var(--signal);
-  border-left: 2px solid var(--signal);
+  border-bottom: 2px solid var(--console-signal);
+  border-left: 2px solid var(--console-signal);
 }
 
 .tour__corner--4 {
   bottom: -1px;
   right: -1px;
-  border-bottom: 2px solid var(--signal);
-  border-right: 2px solid var(--signal);
+  border-bottom: 2px solid var(--console-signal);
+  border-right: 2px solid var(--console-signal);
 }
 
 .tour__bar {
@@ -57,7 +57,7 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--console-mut);
-  background: rgba(236, 235, 231, 0.04);
+  background: rgba(232, 230, 224, 0.04);
 }
 
 .tour__addr {
@@ -81,7 +81,7 @@
 }
 
 .tour__prompt {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 .tour__line--cmd {
@@ -89,7 +89,7 @@
 }
 
 .tour__line--ok {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 .tour__line--out {

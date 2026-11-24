@@ -1,5 +1,5 @@
 /* ============================================================
-   promise — the freezer receipt: family table + the pledge.
+   promise — the freezer receipt: the op-family rows + the pledge.
    ============================================================ */
 
 .promise {
@@ -42,22 +42,18 @@
   margin-top: 1.7rem;
 }
 
-/* the table */
+/* the rows: hairlines only, no box, the same rule grammar as the laws */
 
 .promise__table {
   position: relative;
-  border: 1px solid var(--line);
-  background: var(--paper-raise);
-  padding: 1.1rem 0 0.4rem;
 }
 
 .promise__thead,
 .promise__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 110px;
+  grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.25fr);
   gap: 1rem;
   align-items: baseline;
-  padding-inline: 1.1rem 1.1rem;
 }
 
 .promise__thead {
@@ -70,8 +66,6 @@
 }
 
 .promise__thead span:nth-child(2),
-.promise__thead span:nth-child(3),
-.promise__sec,
 .promise__ops {
   text-align: right;
 }
@@ -90,14 +84,18 @@
   font-weight: 550;
 }
 
-.promise__sec,
 .promise__ops {
   font-size: 0.82rem;
   color: var(--ink-70);
 }
 
+.promise__gives {
+  font-size: 0.88rem;
+  color: var(--ink-70);
+}
+
 .promise__note {
-  padding: 0.9rem 1.1rem 0.6rem;
+  padding: 0.9rem 0 0.6rem;
   font-size: 0.88rem;
   color: var(--ink-70);
 }
@@ -111,13 +109,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .promise__thead span:nth-child(3),
+  /* the ops range is the one column a small screen can spare */
+  .promise__thead span:nth-child(2),
   .promise__ops {
     display: none;
   }
 
   .promise__thead,
   .promise__row {
-    grid-template-columns: minmax(0, 1fr) 110px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   }
 }

@@ -30,19 +30,6 @@
   font-size: var(--step-3);
 }
 
-.laws__note {
-  margin-top: 1.2rem;
-  max-width: 26em;
-  color: var(--ink-70);
-}
-
-.laws__mono-inline {
-  font-size: 0.85em;
-  background: var(--paper-raise);
-  border: 1px solid var(--line);
-  padding: 0.1em 0.4em;
-}
-
 .laws__xhair {
   margin-top: 2.6rem;
   left: 24px;

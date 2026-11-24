@@ -8,7 +8,7 @@ import "./hero.css";
  */
 export default function Hero() {
   return (
-    <section className="section hero bp-grid" id="top">
+    <section className="section hero" id="top">
       <Xhair pos="tr" x="0x0742" y="0x0032" />
       <Xhair pos="bl" x="0x0010" y="0x05e0" />
 

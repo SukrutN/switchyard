@@ -12,7 +12,7 @@ export default function Quickstart() {
       <div className="wrp">
         <div className="quickstart__head">
           <p className="eyebrow">
-            <span className="quickstart__signal">05</span> · quickstart
+            <span className="quickstart__signal">06</span> · quickstart
           </p>
           <h2 className="display quickstart__title" data-anim="wipe">
             <span className="wl" style={{ "--i": 0 } as React.CSSProperties}>
@@ -23,8 +23,8 @@ export default function Quickstart() {
           </h2>
           <p className="quickstart__lede">
             Needs <span className="mono">go 1.25</span>. The first yard runs
-            in memory only; step 3 gives the journal a home, step 4 wraps it
-            in tokens and TLS.
+            in memory only; step 3 turns on the journal, step 4 adds the
+            token gate and TLS.
           </p>
         </div>
 
@@ -79,9 +79,8 @@ export default function Quickstart() {
               <div className="qstep__rail">
                 <span className="qstep__num mono">04</span>
                 <p className="qstep__why">
-                  a token required before HELLO, TLS on every byte. The
-                  README&apos;s rule: a password on an unwrapped wire is not
-                  an operating mode, so use both.
+                  a token required before HELLO, TLS on every byte. Use
+                  both: a token on a plain wire is not an operating mode.
                 </p>
               </div>
               <CopyBlock

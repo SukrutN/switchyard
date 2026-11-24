@@ -1,7 +1,7 @@
 /* ============================================================
-   numbers — the console band. Ink-dark paper, drafting lines in
-   low light, gauges the size of departures. The signal color is
-   the only lamp in the room.
+   numbers — the console band. Deep navy paper, mercury voice,
+   one row per gauge, hairline rules between them. The figures
+   are departures-board size; the cobalt never touches them.
    ============================================================ */
 
 .numbers {
@@ -10,27 +10,10 @@
   border-top: 1px solid var(--ink);
   padding-block: var(--block);
   position: relative;
-  overflow: hidden;
-}
-
-/* dark drafting lines, keyed to the band's own hairline */
-.numbers::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--console-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--console-line) 1px, transparent 1px);
-  background-size: 72px 72px;
-  pointer-events: none;
-}
-
-.numbers .wrp {
-  position: relative;
 }
 
 .numbers__eyebrow-signal {
-  color: var(--signal);
+  color: var(--console-signal);
 }
 
 /* an ink-tinted eyebrow vanishes on the dark band */
@@ -49,40 +32,32 @@
   color: var(--console-mut);
 }
 
-/* ---------- the four gauges ---------- */
+/* ---------- the four gauges: one row each ---------- */
 
-.numbers__grid {
+.numbers__rows {
   margin-top: clamp(2rem, 5vw, 4rem);
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-block: 1px solid var(--console-line);
-}
-
-.numbers__grid > .reveal {
-  height: 100%;
 }
 
 .gauge {
-  height: 100%;
-  padding: clamp(1.4rem, 2.5vw, 2rem) clamp(1rem, 2vw, 1.6rem);
-  border-left: 1px solid var(--console-line);
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  display: grid;
+  grid-template-columns: minmax(200px, 0.36fr) minmax(0, 1fr);
+  gap: clamp(1.2rem, 4vw, 3.5rem);
+  align-items: baseline;
+  padding-block: clamp(1.3rem, 2.8vw, 2rem);
+  border-top: 1px solid var(--console-line);
 }
 
-.numbers__grid > .reveal:first-child .gauge {
-  border-left: none;
-  padding-left: 0;
+.numbers__rows > .reveal:last-child .gauge {
+  border-bottom: 1px solid var(--console-line);
 }
 
 .gauge__value {
   font-family: var(--font-ui), system-ui, sans-serif;
   font-weight: 650;
-  font-size: clamp(2.4rem, 4.6vw, 4.4rem);
+  font-size: clamp(2.2rem, 4.6vw, 4.2rem);
   letter-spacing: -0.045em;
   line-height: 1;
-  color: var(--signal);
+  color: var(--console-fg);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -99,28 +74,13 @@
   font-size: 0.85rem;
   line-height: 1.5;
   color: var(--console-mut);
+  max-width: 46em;
 }
 
-/* ---------- the fine print: conditions + the yardmaster's reading ---------- */
+/* ---------- the fine print: what the figures mean ---------- */
 
 .numbers__foot {
   margin-top: clamp(2rem, 4vw, 3.2rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.numbers__foot-line {
-  font-size: 0.78rem;
-  letter-spacing: 0.05em;
-  color: var(--console-mut);
-}
-
-.numbers__cmd {
-  color: var(--console-fg);
-  background: rgba(236, 235, 231, 0.08);
-  border: 1px solid var(--console-line);
-  padding: 0.1em 0.45em;
 }
 
 .numbers__reading {
@@ -138,37 +98,9 @@
 
 /* ---------- responsive ---------- */
 
-@media (max-width: 1020px) {
-  .numbers__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+@media (max-width: 720px) {
   .gauge {
-    padding-left: 0;
-    border-left: none;
-    border-top: 1px solid var(--console-line);
-    padding-block: 1.4rem 1.6rem;
-  }
-
-  .gauge:first-child,
-  .gauge:nth-child(2) {
-    border-top: none;
-  }
-
-  /* keep a vertical hairline between the pair columns */
-  .gauge:nth-child(even) {
-    padding-left: clamp(1rem, 3vw, 2rem);
-    border-left: 1px solid var(--console-line);
-  }
-}
-
-@media (max-width: 520px) {
-  .numbers__grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .gauge:nth-child(even) {
-    padding-left: 0;
-    border-left: none;
+    gap: 0.45rem;
   }
 }

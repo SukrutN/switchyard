@@ -31,7 +31,7 @@ closed plant segment.
 - **The metrics port carries its own optional bearer** (`-metrics-auth`).
   Unauthenticated scrapes are refused; bind the port to where the scraper
   lives.
-- **Honest key names.** The wire refuses unknown fields and bad subjects by
+- **Refusal by name.** The wire refuses unknown fields and bad subjects by
   name, and quarantine is reported, not cleared, from the console.
 
 ## What is deliberately not provided
@@ -57,5 +57,5 @@ the scraper unless `-metrics-auth` is set. The Docker image and
 
 ## Reporting
 
-Open an issue in this repository. This is a portfolio project; these notes
-are the honest posture, not a certification.
+Open an issue in this repository. This is a portfolio project; these
+notes describe what is enforced, not a certification.
