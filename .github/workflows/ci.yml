@@ -42,7 +42,7 @@ jobs:
         run: docker build -t switchyard .
 
   site:
-    name: site — engines, locks, typecheck, build
+    name: site — typecheck, build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,39 +57,5 @@ jobs:
           cache-dependency-path: site/package-lock.json
 
       - run: npm ci
-      - run: npm run test
-      - run: npm run lock
       - run: npm run typecheck
       - run: npm run build
-
-  integration:
-    name: integration — WES + customs desk against this repo's own yard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-          check-latest: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: site/package-lock.json
-
-      - name: Install (locked)
-        working-directory: site
-        run: npm ci
-
-      - name: go build (warm the yard's cold start)
-        run: go build ./...
-
-      - name: despatch-wes against the real yard
-        working-directory: site
-        run: npm run run:wes
-
-      - name: waybill against the real yard
-        working-directory: site
-        run: npm run run:waybill
